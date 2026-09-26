@@ -322,6 +322,18 @@ final class AppModel {
     /// not start a second one from the Photos fallback.
     @discardableResult
     func importSharedItems() -> Bool {
+        AppConfig.syncToGroup()
+        if let data = SharedInbox.defaults?.data(forKey: SharedInbox.lastBackgroundResultKey) {
+            SharedInbox.defaults?.removeObject(forKey: SharedInbox.lastBackgroundResultKey)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            if let result = try? decoder.decode(FuseResult.self, from: data) {
+                HistoryStore.shared.add(result)
+                open(result)
+                flash("Fused in Safari")
+                return false
+            }
+        }
         let command = FuseCommandFlag.take()
         let consumedScreenshot = importInbox()
         if left.isHome && right.isHome {
@@ -357,7 +369,6 @@ final class AppModel {
             flash("From Safari: \(first.title.prefix(40))")
         }
         lastStagedFromRecents = true
-        SharedInbox.clearRecents()
     }
 
     /// Something copied in another app goes on the first empty half.
