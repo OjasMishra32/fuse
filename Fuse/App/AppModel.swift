@@ -92,7 +92,9 @@ final class AppModel {
 
     /// Changes whenever the live content of either screen changes. Drives the intent preview.
     var contentKey: String {
-        "\(left.kind.rawValue)|\(left.isHome)|\(left.model.hasContent)|\(left.model.headline)|\(right.kind.rawValue)|\(right.isHome)|\(right.model.hasContent)|\(right.model.headline)"
+        let leftPhotoRevision = (left.model as? PhotoSurfaceModel)?.contentRevision ?? 0
+        let rightPhotoRevision = (right.model as? PhotoSurfaceModel)?.contentRevision ?? 0
+        return "\(left.kind.rawValue)|\(left.isHome)|\(left.model.hasContent)|\(left.model.headline)|\(leftPhotoRevision)|\(right.kind.rawValue)|\(right.isHome)|\(right.model.hasContent)|\(right.model.headline)|\(rightPhotoRevision)"
     }
 
     /// What the fold will do if the user doesn't say otherwise.
@@ -109,7 +111,14 @@ final class AppModel {
         guard key != lastPreviewKey else { return }
         lastPreviewKey = key
         previewTask?.cancel()
+        if let chosenSuggestion, instruction == chosenSuggestion.instruction {
+            instruction = ""
+        }
         chosenSuggestion = nil
+        // A replacement photo must not inherit the previous photo's proposed edit
+        // while the new preview is being debounced or fetched.
+        suggestions = []
+        isPreviewing = false
         guard readiness > 0, AppConfig.hasOpenAI else {
             withAnimation(Theme.snappy) { suggestions = []; isPreviewing = false }
             return

@@ -11,6 +11,8 @@ final class PhotoSurfaceModel: SurfaceModel {
     let kind: SurfaceKind = .photo
 
     private(set) var image: UIImage?
+    /// Changes even when a replacement photo has the same size and caption.
+    private(set) var contentRevision: UInt64 = 0
     private(set) var source: String = ""
     var caption: String = ""
     var pickerItem: PhotosPickerItem?
@@ -55,7 +57,7 @@ final class PhotoSurfaceModel: SurfaceModel {
             kind: .photo,
             title: trimmedCaption.isEmpty ? "Photo" : headline,
             text: trimmedCaption.fuseClipped(2000),
-            image: image.fuseDownscaled(maxEdge: 1024),
+            image: image.fuseDownscaled(maxEdge: 2048),
             metadata: meta
         )
     }
@@ -87,6 +89,7 @@ final class PhotoSurfaceModel: SurfaceModel {
     func reset() {
         loadTask?.cancel()
         image = nil
+        contentRevision &+= 1
         caption = ""
         source = ""
         pickerItem = nil
@@ -99,6 +102,7 @@ final class PhotoSurfaceModel: SurfaceModel {
 
     func setImage(_ newImage: UIImage, source newSource: String) {
         image = newImage.fuseDownscaled(maxEdge: 2048)
+        contentRevision &+= 1
         source = newSource
         errorMessage = nil
         isLoading = false
@@ -107,6 +111,7 @@ final class PhotoSurfaceModel: SurfaceModel {
     func clear() {
         Haptics.tap()
         image = nil
+        contentRevision &+= 1
         caption = ""
         source = ""
         pickerItem = nil
@@ -251,7 +256,7 @@ struct PhotoSurfaceView: View {
             SurfaceEmptyState(
                 symbol: "photo.on.rectangle.angled",
                 title: "Add a photo",
-                hint: "A menu, a whiteboard, a receipt, a screenshot — anything the other screen should know about.",
+                hint: "Try your room on one side and furniture on the other. Fold to see them together. Menus, receipts and screenshots work too.",
                 tint: SurfaceKind.photo.tint
             )
             .frame(maxHeight: 200)

@@ -49,7 +49,10 @@ enum Prompts {
     - {"type":"checklist","title":"…","items":[{"text":"…","detail":"…"}]}
       Use for: recipe + fridge photo (shopping list), event + packing, requirements + resume gaps.
     - {"type":"image_edit","prompt":"a precise description of ONE final image that combines what matters from both screens","caption":"…"}
-      Use when the user asks for an image, picture, painting, poster, merge or composite, or when both screens are essentially pictures. Both screens' main photos are supplied to the image model as inputs; write the prompt as the finished scene ("a single photo of both men shaking hands in the Oval Office, natural light"), never as two copies side by side.
+      Use when the user asks for an image, picture, painting, poster, merge or composite, or when both screens are essentially pictures. Both screens' main photos are supplied to the image model as inputs; write the prompt as the finished scene, never as two copies side by side.
+      Use when the useful relationship is visual composition: furniture + room → that furniture placed in that room; clothing + person → a try-on; subject + visual reference → edited photo. Prefer this over a description or comparison for these pairs, even without a spoken instruction. Both screens must contain visible source imagery; a product photo inside a web page or screenshot counts. Two screenshots of messages/documents still call for a text artifact unless the user requests an image.
+      Inspect BOTH images and infer their roles regardless of which side they occupy. Refer to LEFT and RIGHT explicitly in the prompt: identify the scene to preserve, the object/style to transfer, and its placement. For a room, preserve its architecture, camera viewpoint and existing decor; retain the furniture's design, material and color; match perspective, plausible scale, lighting, occlusion and contact shadows. Do not make a collage or side-by-side comparison unless asked. Remove source app chrome, price labels and product backgrounds from the composition. Treat physical fit as a visualization, not a measured guarantee. Explicit requests to compare, extract text or explain still win.
+      Return only the edit prompt and caption, never image_base64. Suggest follow-ups that refine the placement or look using the same two source images.
     - {"type":"markdown","markdown":"…"}
       Use when nothing structured fits. Still specific, still grounded, use headings and bullets.
 
@@ -98,8 +101,37 @@ enum Prompts {
 
     static let closing = "Respond with the JSON object only."
 
+    /// Preserve the link between screen labels and the ordered binary references. The
+    /// image model also gets the user's original intent, not just the router's paraphrase.
+    static func imageEdit(
+        prompt: String, left: SurfaceSnapshot, right: SurfaceSnapshot,
+        instruction: String?, suggested: String?
+    ) -> String {
+        var sections = ["Create one finished image by combining the attached references."]
+        var index = 0
+        for (side, snapshot) in [("LEFT", left), ("RIGHT", right)] {
+            guard snapshot.image != nil else { continue }
+            index += 1
+            sections.append("Reference image \(index) is the \(side) screen.\n\(describe(snapshot, side: side))")
+        }
+        sections.append("""
+        Infer which reference is the base scene and which supplies the object or style, regardless of reference order. Use both when two are supplied. Follow the requested edit while preserving recognizable details from the sources.
+        For furniture and a room: use the room as the canvas, preserve its camera viewpoint, architecture and unrelated decor, and place the actual reference furniture naturally into the room. Preserve its shape, materials and colors. Match perspective, plausible scale, lighting, occlusion and contact shadows. Keep the room's aspect ratio when practical. Do not invent a different room or substitute generic furniture. This is a visual preview, not proof of physical fit.
+        If a reference is an app screenshot or product listing, use its relevant photo and omit app chrome, labels, prices and the product's original background. Make a coherent single scene, not a collage, split screen or before/after layout, unless explicitly requested.
+        """)
+        sections.append("Planned edit:\n\(prompt)")
+        let explicit = instruction?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let proposed = suggested?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !explicit.isEmpty {
+            sections.append("User instruction (takes priority):\n\(explicit)")
+        } else if !proposed.isEmpty {
+            sections.append("Requested fuse:\n\(proposed)")
+        }
+        return sections.joined(separator: "\n\n")
+    }
+
     /// Used when the two inputs are the two halves of one screenshot of the open phone.
     static let screenshotFraming = """
-    CONTEXT: The user was using two real apps side by side on the foldable phone and captured the whole screen. The LEFT image is the left app as it was on screen; the RIGHT image is the right app. Read each image as a live app screen: identify the app (Safari, Maps, Messages, Mail, Calendar, Notes, a PDF, a photo…), extract every fact visible (names, times, prices, addresses, message text, map pins), then fuse them exactly as if the two screens had been handed to you as text. Do not describe the screenshots; produce the result.
+    CONTEXT: The user was using two real apps side by side on the foldable phone and captured the whole screen. The LEFT image is the first app (left or top); the RIGHT image is the second app (right or bottom). Read each image as a live app screen: identify the app (Safari, Maps, Messages, Mail, Calendar, Notes, a PDF, a photo…), extract the visible facts (names, times, prices, addresses, message text, map pins) and use the visible photos when the relationship is visual. For a furniture listing and room photo, produce an image_edit that places the furniture in that room, excluding app chrome. Messages, mail and documents normally need a text artifact. Do not describe the screenshots; produce the result.
     """
 }

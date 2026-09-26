@@ -2,7 +2,7 @@ import XCTest
 import UIKit
 @testable import Fuse
 
-/// Pure unit tests for the background fuse boundaries: cropping, jobs, artifact restriction and
+/// Pure unit tests for the background fuse boundaries: cropping, jobs, image preservation and
 /// the service's exactly-once completion with a fake engine. No network, no Photos.
 final class BackgroundFuseTests: XCTestCase {
 
@@ -181,50 +181,34 @@ final class BackgroundFuseTests: XCTestCase {
         XCTAssertNotNil(freshLoaded)
     }
 
-    // MARK: Artifact restriction
-
-    func testImageArtifactBecomesMarkdownOfSummary() {
-        let image = ImageArtifact(prompt: "merge both photos", caption: "A poster")
-        let restricted = BackgroundFuseService.restrictArtifact(sampleResult(artifact: .image(image), summary: "Here is the gist."))
-        guard case .markdown(let md) = restricted.artifact else { return XCTFail("expected markdown") }
-        XCTAssertEqual(md, "Here is the gist.")
-        XCTAssertEqual(restricted.title, "Fused")
-    }
-
-    func testImageArtifactWithEmptySummaryUsesCaption() {
-        let image = ImageArtifact(prompt: "merge both photos", caption: "A poster")
-        let restricted = BackgroundFuseService.restrictArtifact(sampleResult(artifact: .image(image), summary: "  "))
-        guard case .markdown(let md) = restricted.artifact else { return XCTFail("expected markdown") }
-        XCTAssertEqual(md, "A poster")
-    }
-
-    func testTextArtifactsPassThroughUnchanged() {
-        let original = sampleResult(artifact: .email(EmailDraft(to: ["a@b.c"], subject: "Hi", body: "Body")))
-        XCTAssertEqual(BackgroundFuseService.restrictArtifact(original), original)
-    }
-
     // MARK: BackgroundFuseService with a fake engine
 
-    func testServiceRunsEngineOnceAndRecordsSuccessOnce() async throws {
+    func testServicePreservesGeneratedImageAndRecordsSuccessOnce() async throws {
         let store = try temporaryStore()
         let calls = Counter()
         let successes = Counter()
+        let generatedData = try XCTUnwrap(twoColorImage(width: 80, height: 40).pngData())
+        let generated = ImageArtifact(prompt: "Place the chair in the room", caption: "Chair in the room", imageBase64: generatedData.base64EncodedString())
         let service = BackgroundFuseService(
             store: store,
             engine: { left, right, instruction in
                 await calls.increment()
-                XCTAssertEqual(instruction, "make a checklist")
+                XCTAssertEqual(instruction, "put this chair in the room")
                 XCTAssertEqual(left.title, "Left app")
                 XCTAssertEqual(right.title, "Right app")
-                return FuseResult(recipe: "r", title: "T", summary: "S", artifact: .image(ImageArtifact(prompt: "p")))
+                return FuseResult(recipe: "image_edit", title: "Chair in the room", summary: "", artifact: .image(generated))
             },
             enforcesConfiguration: false,
-            onSuccess: { _ in await successes.increment() }
+            onSuccess: { result in
+                XCTAssertEqual(result.artifact, .image(generated))
+                await successes.increment()
+            }
         )
-        let result = try await service.run(image: twoColorImage(width: 200, height: 100), instruction: "  make a checklist ", layout: .auto)
-        guard case .markdown(let md) = result.artifact else { return XCTFail("image artifact must be restricted") }
-        XCTAssertEqual(md, "S")
-        XCTAssertEqual(result.instruction, "make a checklist")
+        let result = try await service.run(image: twoColorImage(width: 200, height: 100), instruction: "  put this chair in the room ", layout: .auto)
+        guard case .image(let image) = result.artifact else { return XCTFail("generated image must be preserved") }
+        XCTAssertEqual(image, generated)
+        XCTAssertEqual(try XCTUnwrap(image.uiImage).size, CGSize(width: 80, height: 40))
+        XCTAssertEqual(result.instruction, "put this chair in the room")
         XCTAssertEqual(result.inputs.map(\.title), ["Left app", "Right app"])
         let engineCalls = await calls.value
         let successCalls = await successes.value
@@ -234,6 +218,43 @@ final class BackgroundFuseTests: XCTestCase {
         let job = await store.latest()
         XCTAssertEqual(job?.state, .done)
         XCTAssertEqual(job?.result?.id, result.id)
+        XCTAssertEqual(job?.result?.artifact, .image(generated), "persist the image bytes, not only its caption")
+
+        let directory = await store.directory
+        let reopenedStore = FuseJobStore(directory: directory)
+        let reloadedJob = await reopenedStore.load(id: try XCTUnwrap(job).id)
+        XCTAssertEqual(reloadedJob?.result?.artifact, .image(generated), "the generated image must survive a fresh store instance")
+    }
+
+    func testServicePreservesTextArtifact() async throws {
+        let store = try temporaryStore()
+        let original = sampleResult(artifact: .email(EmailDraft(to: ["a@b.c"], subject: "Hi", body: "Body")))
+        let service = BackgroundFuseService(store: store, engine: { _, _, _ in original }, enforcesConfiguration: false, onSuccess: { _ in })
+        let result = try await service.run(image: twoColorImage(width: 200, height: 100), instruction: nil, layout: .auto)
+        XCTAssertEqual(result.artifact, original.artifact)
+    }
+
+    func testServicePropagatesTimeoutAndDoesNotRecordSuccess() async throws {
+        let store = try temporaryStore()
+        let successes = Counter()
+        let service = BackgroundFuseService(
+            store: store,
+            engine: { _, _, _ in throw URLError(.timedOut) },
+            enforcesConfiguration: false,
+            onSuccess: { _ in await successes.increment() }
+        )
+        do {
+            _ = try await service.run(image: twoColorImage(width: 200, height: 100), instruction: "place the chair", layout: .leftRight)
+            XCTFail("expected a timeout")
+        } catch let error as URLError {
+            XCTAssertEqual(error.code, .timedOut)
+        }
+        let job = await store.latest()
+        XCTAssertEqual(job?.state, .failed)
+        XCTAssertNil(job?.result)
+        XCTAssertNotNil(job?.error)
+        let successCalls = await successes.value
+        XCTAssertEqual(successCalls, 0)
     }
 
     func testServiceFailsJobWhenEngineThrowsAndNeverRecordsSuccess() async throws {
@@ -281,6 +302,11 @@ final class BackgroundFuseTests: XCTestCase {
         XCTAssertEqual(FuseSnippetView.rows(for: .markdown(md)).count, 5)
         let mail = EmailDraft(to: ["x@y.z"], subject: "Hello", body: "\nFirst line\nSecond")
         XCTAssertEqual(FuseSnippetView.rows(for: .email(mail)), ["To: x@y.z", "Subject: Hello", "First line"])
+    }
+
+    func testImageSnippetDoesNotReplacePixelsWithPromptRows() {
+        let image = ImageArtifact(prompt: "Internal image-edit instructions", caption: "Chair in the room")
+        XCTAssertTrue(FuseSnippetView.rows(for: .image(image)).isEmpty)
     }
 }
 

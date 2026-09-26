@@ -5,8 +5,9 @@ import UIKit
 //
 // The execution path behind the "Fuse Screens" App Intent. It runs without any scene, pane,
 // command bus or URL navigation: validate the explicit screenshot → crop → existing
-// `FuseEngine` with screenshot framing → restrict the artifact to text → persist → record
+// `FuseEngine` with screenshot framing → persist the complete artifact → record
 // usage once. Results stay local (no Supabase upload on this route).
+// Image generation still has to finish within the system's background execution budget.
 
 struct BackgroundFuseService {
     enum ServiceError: LocalizedError, Equatable {
@@ -74,7 +75,6 @@ struct BackgroundFuseService {
             var result = try await engine(left, right, spoken)
             try Task.checkCancellation()
 
-            result = Self.restrictArtifact(result)
             result.instruction = spoken
             if result.inputs.isEmpty {
                 result.inputs = [InputSummary(kind: .photo, title: left.title), InputSummary(kind: .photo, title: right.title)]
@@ -93,19 +93,6 @@ struct BackgroundFuseService {
             _ = try? await store.fail(id: job.id, error: error.localizedDescription)
             throw error
         }
-    }
-
-    // MARK: Artifact restriction
-
-    /// The background text-demo route never issues the second image API request: an `.image`
-    /// artifact becomes markdown of the summary (or the router's caption/prompt when the summary is empty).
-    static func restrictArtifact(_ result: FuseResult) -> FuseResult {
-        guard case .image(let image) = result.artifact else { return result }
-        var copy = result
-        let summary = result.summary.trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallback = (image.caption ?? image.prompt).trimmingCharacters(in: .whitespacesAndNewlines)
-        copy.artifact = .markdown(summary.isEmpty ? fallback : summary)
-        return copy
     }
 
     // MARK: Live wiring
