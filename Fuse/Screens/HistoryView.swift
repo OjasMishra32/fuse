@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - History
 //
-// Newest first. Tap a row to reopen the result; swipe to delete; Clear wipes everything.
+// Newest first. Tap a row to reopen the result; swipe to share or delete; Clear wipes everything.
 // Presented by the app in a sheet.
 
 struct HistoryView: View {
@@ -48,21 +48,32 @@ struct HistoryView: View {
 
     private var list: some View {
         List {
-            ForEach(store.items) { item in
-                Button {
-                    Haptics.tap()
-                    onOpen(item)
-                } label: {
-                    FuseResultRow(title: item.title, subtitle: item.inputsLine, date: item.createdAt)
+            Section {
+                ForEach(store.items) { item in
+                    Button {
+                        Haptics.tap()
+                        onOpen(item)
+                    } label: {
+                        FuseResultRow(title: item.title, subtitle: item.inputsLine, date: item.createdAt)
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            Haptics.soft()
+                            withAnimation(Theme.snappy) { store.remove(item) }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .swipeActions(edge: .leading) {
+                        ShareLink(item: item.plainText) {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+                        .tint(.accentColor)
+                    }
                 }
-                .buttonStyle(.plain)
-            }
-            .onDelete { offsets in
-                let doomed = offsets.compactMap { store.items[safe: $0] }
-                Haptics.soft()
-                withAnimation(Theme.snappy) {
-                    doomed.forEach { store.remove($0) }
-                }
+            } footer: {
+                Text("Results are kept on this device only.")
             }
         }
         .listStyle(.insetGrouped)
@@ -103,7 +114,6 @@ struct FuseResultRow: View {
     var body: some View {
         HStack(spacing: 12) {
             OrbGlyph(size: 28)
-                .frame(width: 32, height: 32)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -120,7 +130,7 @@ struct FuseResultRow: View {
 
             if let relativeDate {
                 Text(relativeDate)
-                    .font(.footnote)
+                    .font(.footnote.monospacedDigit())
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
             }
@@ -129,16 +139,9 @@ struct FuseResultRow: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(.tertiary)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
+        .frame(minHeight: 44)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
-    }
-}
-
-extension FuseResult {
-    /// "Browser and Maps", or the humanized recipe when no inputs were recorded.
-    var inputsLine: String {
-        if inputs.isEmpty { return recipe.fuseHumanized }
-        return inputs.prefix(3).map(\.kind.title).joined(separator: " and ")
     }
 }

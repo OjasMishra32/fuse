@@ -8,7 +8,6 @@ import EventKit
 
 struct EventArtifactView: View {
     let event: CalendarEventArtifact
-    @Environment(\.fuseCompact) private var compact
     @State private var state: AddState = .idle
 
     private static let store = EKEventStore()
@@ -19,14 +18,14 @@ struct EventArtifactView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             ResultCard {
                 HStack(alignment: .top, spacing: 16) {
                     DateTile(date: event.startDate)
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(event.title)
-                            .font(.fuseHeadline)
-                            .foregroundStyle(Theme.textPrimary)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
                         DetailRow(symbol: "clock", text: whenText)
                         if let location = event.location?.trimmingCharacters(in: .whitespacesAndNewlines), !location.isEmpty {
@@ -36,7 +35,7 @@ struct EventArtifactView: View {
                             DetailRow(symbol: "person.2", text: event.attendees.joined(separator: ", "))
                         }
                         if let notes = event.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
-                            InlineText(text: notes, color: Theme.textSecondary)
+                            InlineText(text: notes, font: .subheadline, color: .secondary)
                                 .padding(.top, 2)
                         }
                     }
@@ -44,30 +43,36 @@ struct EventArtifactView: View {
                 }
             }
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 switch state {
                 case .idle:
-                    EnergyButton(title: "Add to Calendar", symbol: "calendar.badge.plus") { add() }
-                case .adding:
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small).tint(Theme.textSecondary)
-                        Text("Adding…").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                    Button {
+                        add()
+                    } label: {
+                        Label("Add to Calendar", systemImage: "calendar.badge.plus")
+                            .fontWeight(.semibold)
                     }
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 10)
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                case .adding:
+                    WorkingLabel(title: "Adding…")
                 case .added:
-                    StatusPill(title: "Added to Calendar", symbol: "checkmark", tint: ResultPalette.good)
+                    StatusPill(title: "Added to Calendar", symbol: "checkmark")
                         .transition(.scale(scale: 0.9).combined(with: .opacity))
                 case .failed:
-                    EnergyButton(title: "Try again", symbol: "arrow.clockwise") { add() }
+                    Button {
+                        add()
+                    } label: {
+                        Label("Try again", systemImage: "arrow.clockwise")
+                            .fontWeight(.semibold)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
                 }
             }
 
             if case .failed(let message) = state {
-                Text(message)
-                    .font(.fuseCaption)
-                    .foregroundStyle(ResultPalette.bad)
-                    .fixedSize(horizontal: false, vertical: true)
+                ErrorFootnote(message: message)
             }
         }
         .animation(Theme.snappy, value: state)
@@ -147,37 +152,38 @@ struct EventArtifactView: View {
 
 // MARK: - Pieces
 
+/// Month band over a large day number, like the Calendar app icon.
 private struct DateTile: View {
     let date: Date?
 
     var body: some View {
         VStack(spacing: 0) {
             Text(month)
-                .font(.system(size: 11, weight: .bold))
-                .tracking(1)
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.white)
+                .lineLimit(1)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 5)
-                .background(Theme.violet)
+                .padding(.vertical, 4)
+                .background(Color.accentColor)
             Text(day)
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.textPrimary)
+                .font(.title2.weight(.semibold).monospacedDigit())
+                .foregroundStyle(.primary)
                 .padding(.top, 6)
             Text(weekday)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Theme.textTertiary)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
                 .padding(.top, 1)
                 .padding(.bottom, 8)
         }
-        .frame(width: 64)
-        .background(Theme.ink3)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Theme.line, lineWidth: 1))
+        .frame(width: 60)
+        .background(Color(uiColor: .tertiarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     private var month: String {
-        guard let date else { return "DATE" }
-        return date.formatted(.dateTime.month(.abbreviated)).uppercased()
+        guard let date else { return "Date" }
+        return date.formatted(.dateTime.month(.abbreviated))
     }
     private var day: String {
         guard let date else { return "–" }
@@ -185,7 +191,7 @@ private struct DateTile: View {
     }
     private var weekday: String {
         guard let date else { return "TBD" }
-        return date.formatted(.dateTime.weekday(.abbreviated)).uppercased()
+        return date.formatted(.dateTime.weekday(.abbreviated))
     }
 }
 
@@ -196,12 +202,12 @@ private struct DetailRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.textTertiary)
-                .frame(width: 16)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
             Text(text)
-                .font(.fuseBody)
-                .foregroundStyle(Theme.textSecondary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

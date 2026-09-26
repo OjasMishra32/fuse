@@ -3,25 +3,26 @@ import UIKit
 
 // MARK: - Shared helpers for result rendering
 //
-// Small, reusable pieces that every artifact view leans on: a wrapping layout for chips,
-// inline-markdown text, a progress bar, a copy button with feedback, and the staggered
-// reveal animation used by the result screen.
+// Small, reusable pieces that every artifact view leans on: a wrapping layout for pills,
+// inline-markdown text, bordered in-card buttons, a labelled section, a hairline, and the
+// staggered reveal animation used by the result screen. Everything is system-coloured and
+// scales with Dynamic Type.
 
 extension EnvironmentValues {
     /// True when rendering on the narrow cover display. Artifact views read this to tighten layout.
     @Entry var fuseCompact: Bool = false
 }
 
-/// Semantic colors used only inside results (quiz / grade / diff). Everything else stays neutral.
+/// Semantic colors used only inside results (quiz / grade / diff / checklist). Always applied as
+/// low-opacity fills or symbol tints, never as text colour.
 enum ResultPalette {
-    static let good = Theme.mint
-    static let bad = Color(red: 1.0, green: 0.42, blue: 0.42)
-    static let warn = Color(red: 1.0, green: 0.80, blue: 0.36)
+    static let good = Color(uiColor: .systemGreen)
+    static let bad = Color(uiColor: .systemRed)
 }
 
 // MARK: Flow layout
 
-/// Lays subviews out left-to-right and wraps onto new rows. Used for chips and action rows.
+/// Lays subviews out left-to-right and wraps onto new rows. Used for pills and action rows.
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
     var rowSpacing: CGFloat = 8
@@ -79,83 +80,78 @@ enum InlineMarkdown {
     }
 }
 
-/// Body text with inline markdown, styled for results.
+/// Multi-line text with inline markdown. Links pick up the accent colour.
 struct InlineText: View {
     var text: String
-    var font: Font = .fuseBody
-    var color: Color = Theme.textPrimary
+    var font: Font = .body
+    var color: Color = .primary
 
     var body: some View {
         Text(InlineMarkdown.attributed(text))
             .font(font)
             .foregroundStyle(color)
-            .tint(Theme.cyan)
-            .lineSpacing(3)
+            .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
 
-// MARK: Progress bar
+// MARK: Sections
 
-struct ProgressBar: View {
-    var fraction: Double
-    var tint: Color = Theme.violet
-    var height: CGFloat = 5
-
-    private var clamped: CGFloat {
-        guard fraction.isFinite else { return 0 }
-        return CGFloat(min(max(fraction, 0), 1))
-    }
+/// A section inside a result: an uppercase footnote label aligned with card content, then the content.
+struct ResultSection<Content: View>: View {
+    var title: String
+    @ViewBuilder var content: Content
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.08))
-                Capsule().fill(tint)
-                    .frame(width: max(geo.size.width * clamped, clamped > 0 ? height : 0))
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            Eyebrow(text: title)
+                .padding(.leading, Theme.margin)
+            content
         }
-        .frame(height: height)
-        .animation(Theme.snappy, value: clamped)
     }
 }
 
-// MARK: Small controls
+/// Placeholder card for an artifact that came back empty.
+struct EmptyArtifactCard: View {
+    var text: String
+    var body: some View {
+        ResultCard {
+            Text(text)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
 
-/// Tiny inline text button used inside cards (Copy, Open in Maps…).
+// MARK: In-card buttons
+
+/// Small bordered capsule used inside cards (Open in Maps, Reset, Reveal…).
 struct MiniButton: View {
     var title: String
     var symbol: String
-    var tint: Color = Theme.textSecondary
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
-                Text(title).font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundStyle(tint)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Capsule().fill(.white.opacity(0.06)))
-            .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
+            Label(title, systemImage: symbol)
+                .lineLimit(1)
         }
-        .buttonStyle(.plain)
-        .contentShape(Capsule())
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .controlSize(.small)
     }
 }
 
 /// Copies `text` to the pasteboard and shows a brief "Copied" confirmation.
-struct CopyMiniButton: View {
+struct CopyButton: View {
     var text: String
     var title: String = "Copy"
+    var size: ControlSize = .regular
     @State private var copied = false
 
     var body: some View {
-        MiniButton(title: copied ? "Copied" : title,
-                   symbol: copied ? "checkmark" : "doc.on.doc",
-                   tint: copied ? Theme.mint : Theme.textSecondary) {
+        Button {
             UIPasteboard.general.string = text
             Haptics.soft()
             withAnimation(Theme.snappy) { copied = true }
@@ -163,34 +159,68 @@ struct CopyMiniButton: View {
                 try? await Task.sleep(for: .seconds(1.4))
                 withAnimation(Theme.snappy) { copied = false }
             }
+        } label: {
+            Label(copied ? "Copied" : title, systemImage: copied ? "checkmark" : "doc.on.doc")
+                .lineLimit(1)
+                .contentTransition(.symbolEffect(.replace))
         }
-        .animation(Theme.snappy, value: copied)
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .controlSize(size)
+        .accessibilityLabel(copied ? "Copied" : title)
     }
 }
 
-/// A static pill used for confirmations ("Added", "Saved") and errors.
+/// A static confirmation pill ("Added to Calendar", "Saved to Photos"): green tint on a 12% fill.
 struct StatusPill: View {
     var title: String
     var symbol: String
-    var tint: Color = Theme.mint
+    var tint: Color = ResultPalette.good
 
     var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: symbol).font(.system(size: 13, weight: .bold))
-            Text(title).font(.system(size: 14, weight: .semibold))
-        }
-        .foregroundStyle(tint)
-        .padding(.horizontal, 15)
-        .padding(.vertical, 10)
-        .background(Capsule().fill(tint.opacity(0.14)))
-        .overlay(Capsule().stroke(tint.opacity(0.35), lineWidth: 1))
+        Label(title, systemImage: symbol)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(tint.opacity(0.12), in: Capsule())
     }
 }
 
-/// A 1pt hairline in the theme's line color.
-struct Hairline: View {
+/// An inline progress state ("Adding…", "Saving…") matching the height of a regular button.
+struct WorkingLabel: View {
+    var title: String
     var body: some View {
-        Rectangle().fill(Theme.line).frame(height: 1)
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text(title)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+}
+
+/// A footnote error line: secondary text with a warning symbol, no red text.
+struct ErrorFootnote: View {
+    var message: String
+    var body: some View {
+        Label(message, systemImage: "exclamationmark.triangle")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// A one-pixel separator in the system separator colour.
+struct Hairline: View {
+    @Environment(\.displayScale) private var scale
+    var body: some View {
+        Rectangle()
+            .fill(Theme.line)
+            .frame(height: 1 / max(scale, 1))
     }
 }
 
@@ -238,6 +268,14 @@ extension String {
         let words = spaced.split(whereSeparator: { $0.isWhitespace }).map { $0.lowercased() }
         guard let first = words.first else { return "Fuse" }
         return ([first.prefix(1).uppercased() + first.dropFirst()] + words.dropFirst()).joined(separator: " ")
+    }
+}
+
+extension FuseResult {
+    /// "Browser and Maps", or the humanized recipe when no inputs were recorded.
+    var inputsLine: String {
+        if inputs.isEmpty { return recipe.fuseHumanized }
+        return inputs.prefix(3).map(\.kind.title).joined(separator: " and ")
     }
 }
 

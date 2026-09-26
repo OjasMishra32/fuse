@@ -5,11 +5,10 @@ import CoreLocation
 // MARK: - Itinerary
 //
 // A map fitted to every located stop, then each day as a vertical timeline. Stops are
-// numbered globally so the marker on the map and the dot in the timeline always agree.
+// numbered globally so the marker on the map and the number in the timeline always agree.
 
 struct ItineraryArtifactView: View {
     let itinerary: Itinerary
-    @Environment(\.fuseCompact) private var compact
     @State private var camera: MapCameraPosition = .automatic
 
     private struct LocatedStop: Identifiable {
@@ -40,7 +39,7 @@ struct ItineraryArtifactView: View {
 
     var body: some View {
         let stops = located
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             if !stops.isEmpty {
                 map(stops)
             }
@@ -51,11 +50,7 @@ struct ItineraryArtifactView: View {
             }
 
             if itinerary.days.isEmpty {
-                ResultCard {
-                    Text("No stops were planned.")
-                        .font(.fuseBody)
-                        .foregroundStyle(Theme.textSecondary)
-                }
+                EmptyArtifactCard(text: "No stops were planned.")
             }
 
             if !itinerary.tips.isEmpty {
@@ -77,12 +72,13 @@ struct ItineraryArtifactView: View {
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll, showsTraffic: false))
         .mapControlVisibility(.hidden)
-        .frame(height: compact ? 200 : 220)
+        .frame(height: 220)
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))
         .onAppear {
             camera = .region(Self.region(fitting: stops.map(\.coordinate)))
         }
+        .accessibilityLabel("Map of \(stops.count) \(stops.count == 1 ? "stop" : "stops")")
     }
 
     private static func region(fitting coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
@@ -108,19 +104,21 @@ struct ItineraryArtifactView: View {
     // MARK: Header line
 
     private var destinationLine: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: "mappin.and.ellipse")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.violet)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
             Text(itinerary.destination)
-                .font(.fuseHeadline)
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
             Spacer(minLength: 8)
             Text(countLabel)
-                .font(.fuseCaption)
-                .foregroundStyle(Theme.textTertiary)
+                .font(.footnote.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
+        .padding(.horizontal, 4)
     }
 
     private var countLabel: String {
@@ -134,14 +132,13 @@ struct ItineraryArtifactView: View {
     // MARK: Day timeline
 
     private func daySection(_ day: Itinerary.Day, offset: Int) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Eyebrow(text: day.title)
+        ResultSection(title: day.title) {
             ResultCard {
                 VStack(alignment: .leading, spacing: 0) {
                     if day.stops.isEmpty {
                         Text("Free day.")
-                            .font(.fuseBody)
-                            .foregroundStyle(Theme.textSecondary)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
                     }
                     ForEach(Array(day.stops.enumerated()), id: \.offset) { index, stop in
                         StopRow(number: offset + index + 1, stop: stop, isLast: index == day.stops.count - 1)
@@ -154,16 +151,15 @@ struct ItineraryArtifactView: View {
     // MARK: Tips
 
     private var tips: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Eyebrow(text: "Tips")
+        ResultSection(title: "Tips") {
             ResultCard {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(Array(itinerary.tips.enumerated()), id: \.offset) { _, tip in
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
                             Image(systemName: "lightbulb")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Theme.cyan)
-                            InlineText(text: tip, color: Theme.textPrimary.opacity(0.9))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            InlineText(text: tip)
                         }
                     }
                 }
@@ -174,21 +170,22 @@ struct ItineraryArtifactView: View {
 
 // MARK: - Pieces
 
+/// Numbered accent marker on the map, like a Maps guide pin.
 private struct StopMarker: View {
     let number: Int
     var body: some View {
-        ZStack {
-            Circle().fill(Theme.violet)
-            Circle().stroke(.white.opacity(0.9), lineWidth: 2)
-            Text("\(number)")
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-        }
-        .frame(width: 26, height: 26)
-        .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
+        Text("\(number)")
+            .font(.caption.weight(.bold).monospacedDigit())
+            .foregroundStyle(.white)
+            .frame(width: 26, height: 26)
+            .background(Color.accentColor, in: Circle())
+            .overlay(Circle().stroke(.white, lineWidth: 2))
+            .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+            .accessibilityLabel("Stop \(number)")
     }
 }
 
+/// One stop: a 12pt dot on a hairline timeline, then time, name, note and Open in Maps.
 private struct StopRow: View {
     let number: Int
     let stop: Itinerary.Stop
@@ -200,50 +197,53 @@ private struct StopRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 0) {
-                ZStack {
-                    Circle().fill(Theme.violet.opacity(0.16))
-                    Circle().stroke(Theme.violet, lineWidth: 1.5)
-                    Text("\(number)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(Theme.violet)
-                }
-                .frame(width: 24, height: 24)
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 12, height: 12)
+                    .padding(.top, 4)
                 if !isLast {
                     Rectangle()
                         .fill(Theme.line)
-                        .frame(width: 1.5)
+                        .frame(width: 1)
                         .frame(maxHeight: .infinity)
                         .padding(.vertical, 4)
                 }
             }
+            .frame(width: 12)
 
             VStack(alignment: .leading, spacing: 4) {
-                if let time = stop.time, !time.isEmpty {
+                if let time = stop.time?.trimmingCharacters(in: .whitespaces), !time.isEmpty {
                     Text(time)
-                        .font(.fuseMono)
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(.footnote.monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
-                Text(stop.name)
-                    .font(.fuseHeadline)
-                    .foregroundStyle(Theme.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(number)")
+                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Text(stop.name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if let note = stop.note, !note.isEmpty {
-                    InlineText(text: note, color: Theme.textSecondary)
+                    InlineText(text: note, font: .subheadline, color: .secondary)
                 }
                 if hasCoordinates {
-                    MiniButton(title: "Open in Maps", symbol: "arrow.triangle.turn.up.right.diamond", tint: Theme.cyan) {
+                    MiniButton(title: "Open in Maps", symbol: "arrow.triangle.turn.up.right.diamond") {
                         openInMaps()
                     }
                     .padding(.top, 4)
                 }
             }
-            .padding(.bottom, isLast ? 0 : 18)
+            .padding(.bottom, isLast ? 0 : 16)
 
             Spacer(minLength: 0)
         }
         .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
     }
 
     private func openInMaps() {

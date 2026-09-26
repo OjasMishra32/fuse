@@ -15,35 +15,35 @@ struct QuizArtifactView: View {
             return acc + (q.answerIndex == pair.value ? 1 : 0)
         }
     }
+    private var allCorrect: Bool { total > 0 && correct == total }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             ResultCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text(quiz.title)
-                            .font(.fuseHeadline)
-                            .foregroundStyle(Theme.textPrimary)
-                            .lineLimit(2)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 8)
-                        Text("\(correct) / \(total)")
-                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(correct == total && total > 0 ? ResultPalette.good : Theme.textSecondary)
-                            .contentTransition(.numericText())
+                        scorePill
                     }
-                    ProgressBar(fraction: total == 0 ? 0 : Double(answered) / Double(total))
-                    HStack {
+                    ProgressView(value: total == 0 ? 0 : Double(answered) / Double(total))
+                        .tint(allCorrect ? ResultPalette.good : Color.accentColor)
+                        .animation(Theme.snappy, value: answered)
+                    HStack(spacing: 8) {
                         Text(answered == total && total > 0 ? "All answered" : "\(answered) of \(total) answered")
-                            .font(.fuseCaption)
-                            .foregroundStyle(Theme.textTertiary)
-                        Spacer()
+                            .font(.footnote.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 8)
                         if answered > 0 || revealAll {
                             MiniButton(title: "Reset", symbol: "arrow.counterclockwise") {
                                 Haptics.tap()
                                 withAnimation(Theme.snappy) { answers.removeAll(); revealAll = false }
                             }
                         }
-                        MiniButton(title: revealAll ? "Hide answers" : "Reveal all", symbol: revealAll ? "eye.slash" : "eye") {
+                        MiniButton(title: revealAll ? "Hide" : "Reveal", symbol: revealAll ? "eye.slash" : "eye") {
                             Haptics.tap()
                             withAnimation(Theme.snappy) { revealAll.toggle() }
                         }
@@ -52,11 +52,7 @@ struct QuizArtifactView: View {
             }
 
             if quiz.questions.isEmpty {
-                ResultCard {
-                    Text("No questions were generated.")
-                        .font(.fuseBody)
-                        .foregroundStyle(Theme.textSecondary)
-                }
+                EmptyArtifactCard(text: "No questions were generated.")
             }
 
             ForEach(quiz.questions.indices, id: \.self) { index in
@@ -71,6 +67,18 @@ struct QuizArtifactView: View {
                 }
             }
         }
+    }
+
+    /// "3 / 5" on a system fill; green at 12% once every answer is right.
+    private var scorePill: some View {
+        Text("\(correct) / \(total)")
+            .font(.subheadline.weight(.semibold).monospacedDigit())
+            .foregroundStyle(allCorrect ? ResultPalette.good : .secondary)
+            .contentTransition(.numericText())
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(allCorrect ? ResultPalette.good.opacity(0.12) : Color(uiColor: .tertiarySystemFill), in: Capsule())
+            .accessibilityLabel("\(correct) of \(total) correct")
     }
 }
 
@@ -87,11 +95,11 @@ private struct QuestionCard: View {
     var body: some View {
         ResultCard {
             VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text("Q\(number)")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(Theme.violet)
-                    InlineText(text: question.prompt, font: .fuseHeadline)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Question \(number)")
+                        .font(.footnote.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    InlineText(text: question.prompt, font: .headline)
                 }
 
                 VStack(spacing: 8) {
@@ -108,13 +116,10 @@ private struct QuestionCard: View {
                 if resolved, let explanation = question.explanation, !explanation.isEmpty {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Image(systemName: "info.circle")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.textTertiary)
-                        InlineText(text: explanation, font: .fuseCaption, color: Theme.textSecondary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        InlineText(text: explanation, font: .footnote, color: .secondary)
                     }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
@@ -134,6 +139,7 @@ private struct QuestionCard: View {
     }
 }
 
+/// A 44pt choice row: lettered circle, text; green or red 12% fill with a symbol once resolved.
 private struct ChoiceRow: View {
     enum Mode { case neutral, correct, wrong, dimmed }
 
@@ -142,60 +148,71 @@ private struct ChoiceRow: View {
     let state: Mode
     let action: () -> Void
 
-    private var tint: Color {
-        switch state {
-        case .correct: ResultPalette.good
-        case .wrong: ResultPalette.bad
-        case .neutral, .dimmed: Theme.textSecondary
-        }
-    }
-
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                ZStack {
-                    Circle().fill(state == .neutral || state == .dimmed ? Color.white.opacity(0.06) : tint.opacity(0.2))
-                    switch state {
-                    case .correct:
-                        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(tint)
-                    case .wrong:
-                        Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundStyle(tint)
-                    case .neutral, .dimmed:
-                        Text(letter).font(.system(size: 12, weight: .bold, design: .rounded)).foregroundStyle(Theme.textSecondary)
-                    }
-                }
-                .frame(width: 26, height: 26)
-
+            HStack(alignment: .center, spacing: 12) {
+                badge
                 Text(InlineMarkdown.attributed(text))
-                    .font(.fuseBody)
-                    .foregroundStyle(state == .dimmed ? Theme.textTertiary : Theme.textPrimary)
+                    .font(.body)
+                    .foregroundStyle(state == .dimmed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(border, lineWidth: 1))
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.vertical, 8)
+            .frame(minHeight: 44)
+            .background(background, in: RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    @ViewBuilder
+    private var badge: some View {
+        Group {
+            switch state {
+            case .correct:
+                Image(systemName: "checkmark")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(ResultPalette.good)
+            case .wrong:
+                Image(systemName: "xmark")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(ResultPalette.bad)
+            case .neutral, .dimmed:
+                Text(letter)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 28, height: 28)
+        .background(badgeFill, in: Circle())
+    }
+
+    private var badgeFill: Color {
+        switch state {
+        case .correct: ResultPalette.good.opacity(0.18)
+        case .wrong: ResultPalette.bad.opacity(0.18)
+        case .neutral, .dimmed: Color(uiColor: .tertiarySystemFill)
+        }
     }
 
     private var background: Color {
         switch state {
-        case .correct: ResultPalette.good.opacity(0.14)
-        case .wrong: ResultPalette.bad.opacity(0.14)
-        case .neutral: Color.white.opacity(0.04)
-        case .dimmed: Color.white.opacity(0.02)
+        case .correct: ResultPalette.good.opacity(0.12)
+        case .wrong: ResultPalette.bad.opacity(0.12)
+        case .neutral: Color(uiColor: .tertiarySystemGroupedBackground)
+        case .dimmed: Color(uiColor: .tertiarySystemGroupedBackground).opacity(0.6)
         }
     }
 
-    private var border: Color {
+    private var accessibilityText: String {
         switch state {
-        case .correct: ResultPalette.good.opacity(0.45)
-        case .wrong: ResultPalette.bad.opacity(0.45)
-        case .neutral, .dimmed: Theme.line
+        case .correct: "\(letter), \(text), correct"
+        case .wrong: "\(letter), \(text), incorrect"
+        case .neutral, .dimmed: "\(letter), \(text)"
         }
     }
 }
@@ -211,58 +228,59 @@ struct SlidesArtifactView: View {
     private var current: SlideDeck.Slide? { slides[safe: index] }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             if slides.isEmpty {
-                ResultCard {
-                    Text("No slides were generated.")
-                        .font(.fuseBody)
-                        .foregroundStyle(Theme.textSecondary)
-                }
+                EmptyArtifactCard(text: "No slides were generated.")
             } else {
                 TabView(selection: $index) {
                     ForEach(slides.indices, id: \.self) { i in
                         SlideCard(deck: deck, slide: slides[i], number: i + 1, total: slides.count, compact: compact)
-                            .padding(.horizontal, 2)
                             .tag(i)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: compact ? 225 : 300)
+                .aspectRatio(16.0 / 10.0, contentMode: .fit)
                 .onChange(of: index) { _, _ in Haptics.selection() }
 
                 HStack(spacing: 12) {
-                    GlassIconButton(symbol: "chevron.left", size: 30) {
+                    pageButton(symbol: "chevron.left", label: "Previous slide", disabled: index == 0) {
                         withAnimation(Theme.snappy) { index = max(0, index - 1) }
                     }
-                    .opacity(index == 0 ? 0.35 : 1)
-                    .disabled(index == 0)
-
                     Spacer(minLength: 0)
                     PageDots(count: slides.count, current: index)
                     Spacer(minLength: 0)
-
-                    GlassIconButton(symbol: "chevron.right", size: 30) {
+                    pageButton(symbol: "chevron.right", label: "Next slide", disabled: index >= slides.count - 1) {
                         withAnimation(Theme.snappy) { index = min(slides.count - 1, index + 1) }
                     }
-                    .opacity(index >= slides.count - 1 ? 0.35 : 1)
-                    .disabled(index >= slides.count - 1)
                 }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Eyebrow(text: "Speaker notes · Slide \(index + 1)")
+                ResultSection(title: "Notes · Slide \(index + 1)") {
                     ResultCard {
                         if let notes = current?.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
-                            InlineText(text: notes, color: Theme.textPrimary.opacity(0.9))
+                            InlineText(text: notes)
                         } else {
                             Text("No notes for this slide.")
-                                .font(.fuseBody)
-                                .foregroundStyle(Theme.textTertiary)
+                                .font(.body)
+                                .foregroundStyle(.secondary)
                         }
                     }
                     .animation(nil, value: index)
                 }
             }
         }
+    }
+
+    private func pageButton(symbol: String, label: String, disabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 20, height: 20)
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.circle)
+        .controlSize(.small)
+        .disabled(disabled)
+        .accessibilityLabel(label)
     }
 }
 
@@ -271,17 +289,20 @@ private struct PageDots: View {
     let current: Int
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 6) {
             ForEach(0..<max(count, 0), id: \.self) { i in
-                Capsule()
-                    .fill(i == current ? Theme.textPrimary : Color.white.opacity(0.2))
-                    .frame(width: i == current ? 16 : 5, height: 5)
+                Circle()
+                    .fill(i == current ? Color.primary : Color(uiColor: .tertiaryLabel))
+                    .frame(width: 7, height: 7)
             }
         }
         .animation(Theme.snappy, value: current)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Slide \(current + 1) of \(count)")
     }
 }
 
+/// One 16:10 slide on a grouped card: title, bullets, deck name and page number.
 private struct SlideCard: View {
     let deck: SlideDeck
     let slide: SlideDeck.Slide
@@ -289,53 +310,51 @@ private struct SlideCard: View {
     let total: Int
     let compact: Bool
 
+    private var maxBullets: Int { compact ? 4 : 5 }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(slide.title.isEmpty ? "Slide \(number)" : slide.title)
-                .font(.system(size: compact ? 17 : 21, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
+                .font(compact ? .headline : .title3.weight(.semibold))
+                .foregroundStyle(.primary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-            Rectangle()
-                .fill(Theme.energy)
-                .frame(width: 36, height: 2)
-                .padding(.top, 8)
-                .padding(.bottom, 10)
+                .padding(.bottom, compact ? 8 : 12)
             VStack(alignment: .leading, spacing: compact ? 4 : 6) {
-                ForEach(Array(slide.bullets.prefix(6).enumerated()), id: \.offset) { _, bullet in
+                ForEach(Array(slide.bullets.prefix(maxBullets).enumerated()), id: \.offset) { _, bullet in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text("–")
-                            .font(.system(size: compact ? 12.5 : 14, weight: .semibold))
-                            .foregroundStyle(Theme.textTertiary)
+                        Text("•")
+                            .font(compact ? .footnote : .subheadline)
+                            .foregroundStyle(.secondary)
                         Text(InlineMarkdown.attributed(bullet))
-                            .font(.system(size: compact ? 12.5 : 14))
-                            .foregroundStyle(Theme.textPrimary.opacity(0.86))
+                            .font(compact ? .footnote : .subheadline)
+                            .foregroundStyle(.primary)
                             .lineLimit(2)
                     }
                 }
-                if slide.bullets.count > 6 {
-                    Text("+\(slide.bullets.count - 6) more")
-                        .font(.fuseCaption)
-                        .foregroundStyle(Theme.textTertiary)
+                if slide.bullets.count > maxBullets {
+                    Text("+\(slide.bullets.count - maxBullets) more")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 0)
             HStack {
                 Text(deck.title)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textTertiary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer()
                 Text("\(number) / \(total)")
-                    .font(.fuseMono)
-                    .foregroundStyle(Theme.textTertiary)
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(compact ? 16 : 20)
+        .padding(compact ? Theme.margin : Theme.gutter)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .aspectRatio(16.0 / 10.0, contentMode: .fit)
-        .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+        .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))
+        .padding(.horizontal, 1)
     }
 }
 
@@ -347,32 +366,37 @@ struct ChecklistArtifactView: View {
     @State private var done: Set<Int> = []
 
     private var total: Int { checklist.items.count }
+    private var complete: Bool { total > 0 && done.count == total }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if showsHeader {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(checklist.title)
-                        .font(.fuseHeadline)
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(2)
-                    Spacer(minLength: 8)
-                    Text("\(done.count) of \(total)")
-                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(done.count == total && total > 0 ? ResultPalette.good : Theme.textSecondary)
-                        .contentTransition(.numericText())
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(checklist.title)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 8)
+                        Text("\(done.count) of \(total)")
+                            .font(.footnote.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .contentTransition(.numericText())
+                    }
+                    ProgressView(value: total == 0 ? 0 : Double(done.count) / Double(total))
+                        .tint(complete ? ResultPalette.good : Color.accentColor)
+                        .animation(Theme.snappy, value: done.count)
                 }
-                ProgressBar(fraction: total == 0 ? 0 : Double(done.count) / Double(total),
-                            tint: done.count == total && total > 0 ? ResultPalette.good : Theme.violet)
+                .padding(.horizontal, 4)
             }
 
             ResultCard(padding: 0) {
                 VStack(alignment: .leading, spacing: 0) {
                     if checklist.items.isEmpty {
                         Text("Nothing to check off.")
-                            .font(.fuseBody)
-                            .foregroundStyle(Theme.textSecondary)
-                            .padding(16)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .padding(Theme.margin)
                     }
                     ForEach(checklist.items.indices, id: \.self) { index in
                         let item = checklist.items[index]
@@ -385,34 +409,37 @@ struct ChecklistArtifactView: View {
                         } label: {
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 20, weight: .regular))
-                                    .foregroundStyle(isDone ? ResultPalette.good : Theme.textTertiary)
+                                    .font(.title3)
+                                    .foregroundStyle(isDone ? Color.accentColor : Color(uiColor: .tertiaryLabel))
                                     .contentTransition(.symbolEffect(.replace))
-                                VStack(alignment: .leading, spacing: 3) {
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 2) {
                                     Text(InlineMarkdown.attributed(item.text))
-                                        .font(.fuseBody)
-                                        .foregroundStyle(isDone ? Theme.textTertiary : Theme.textPrimary)
-                                        .strikethrough(isDone, color: Theme.textTertiary)
+                                        .font(.body)
+                                        .foregroundStyle(isDone ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                                        .strikethrough(isDone)
                                         .multilineTextAlignment(.leading)
                                         .fixedSize(horizontal: false, vertical: true)
                                     if let detail = item.detail, !detail.isEmpty {
                                         Text(InlineMarkdown.attributed(detail))
-                                            .font(.fuseCaption)
-                                            .foregroundStyle(Theme.textSecondary)
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
                                             .multilineTextAlignment(.leading)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
                                 Spacer(minLength: 0)
                             }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
+                            .padding(.horizontal, Theme.margin)
+                            .padding(.vertical, 10)
+                            .frame(minHeight: 44)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityAddTraits(isDone ? [.isSelected] : [])
 
                         if index < total - 1 {
-                            Hairline().padding(.leading, 46)
+                            Hairline().padding(.leading, Theme.margin + 24 + 12)
                         }
                     }
                 }

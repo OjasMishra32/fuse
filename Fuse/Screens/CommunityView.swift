@@ -44,8 +44,12 @@ struct CommunityView: View {
             ProgressView()
                 .controlSize(.large)
         } else if rows.isEmpty {
-            emptyState
-                .refreshable { await load() }
+            // Wrapped in a scroll view so pull-to-refresh works on the empty state too.
+            ScrollView {
+                emptyState
+                    .containerRelativeFrame(.vertical)
+            }
+            .refreshable { await load() }
         } else {
             List {
                 Section {
@@ -56,6 +60,12 @@ struct CommunityView: View {
                             FuseResultRow(title: row.title, subtitle: inputsLine(row), date: row.created_at)
                         }
                         .buttonStyle(.plain)
+                        .swipeActions(edge: .leading) {
+                            ShareLink(item: row.toFuseResult().plainText) {
+                                Label("Share", systemImage: "square.and.arrow.up")
+                            }
+                            .tint(.accentColor)
+                        }
                     }
                 } footer: {
                     Text("Public fuses from every Duo. Share your own from the result screen.")
@@ -98,7 +108,7 @@ struct CommunityView: View {
                 Haptics.tap()
                 Task { await load() }
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)
         }
     }
@@ -139,5 +149,6 @@ private struct SetupStep: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }
