@@ -5,6 +5,7 @@ import SwiftUI
 // While the model works. It should feel like the system thinking, not an app loading:
 // the orb breathing, the intelligence glow along the bottom edge, a calm title, and the
 // two inputs in a grouped card. Renders on the inner display (overlay) and on the cover.
+// Only the background and the glow ignore the safe area; the chrome stays inside it.
 
 struct FusingView: View {
     @Bindable var model: AppModel
@@ -15,14 +16,15 @@ struct FusingView: View {
             let t = timeline.date.timeIntervalSinceReferenceDate
             ZStack {
                 Theme.ink.opacity(compact ? 1 : 0.96)
+                    .ignoresSafeArea()
 
                 edgeGlow(t: t)
 
                 VStack(spacing: 0) {
-                    Spacer()
+                    Spacer(minLength: 0)
 
                     OrbView(size: 132, animated: true, intensity: 1)
-                        .padding(.bottom, 30)
+                        .padding(.bottom, 24)
 
                     Text(headline)
                         .font(.title2.weight(.semibold))
@@ -31,11 +33,12 @@ struct FusingView: View {
                         .lineLimit(2)
                         .minimumScaleFactor(0.85)
                         .frame(maxWidth: 360)
-                        .padding(.bottom, 6)
+                        .padding(.bottom, 8)
 
                     Text(model.fusingStage)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                         .contentTransition(.opacity)
                         .id(model.fusingStage)
                         .transition(.blurReplace)
@@ -51,12 +54,12 @@ struct FusingView: View {
                             .lineLimit(2)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: 320)
-                            .padding(.top, 14)
+                            .padding(.top, 12)
                     }
 
-                    Spacer()
+                    Spacer(minLength: 0)
 
-                    HStack(spacing: 14) {
+                    HStack(spacing: 12) {
                         Text(elapsed())
                             .font(.footnote.monospacedDigit())
                             .foregroundStyle(.tertiary)
@@ -65,13 +68,12 @@ struct FusingView: View {
                             .buttonBorderShape(.capsule)
                             .controlSize(.small)
                     }
-                    .padding(.bottom, 34)
+                    .padding(.bottom, 16)
                 }
                 .padding(.horizontal, Theme.gutter)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .animation(Theme.snappy, value: model.fusingStage)
             }
-            .ignoresSafeArea()
         }
     }
 
@@ -138,14 +140,14 @@ struct FusingView: View {
             Divider().padding(.leading, 52)
             inputRow(model.right)
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+        .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
     }
 
     private func inputRow(_ pane: Pane) -> some View {
         let surface = pane.model
         return HStack(spacing: 12) {
             AppGlyph(kind: pane.kind, size: 28)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(pane.kind.title)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -159,5 +161,6 @@ struct FusingView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
     }
 }

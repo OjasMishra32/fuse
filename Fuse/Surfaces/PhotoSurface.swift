@@ -182,7 +182,6 @@ private struct CameraPicker: UIViewControllerRepresentable {
         picker.cameraCaptureMode = .photo
         picker.allowsEditing = false
         picker.delegate = context.coordinator
-        picker.overrideUserInterfaceStyle = .dark
         return picker
     }
 
@@ -210,34 +209,70 @@ private struct CameraPicker: UIViewControllerRepresentable {
 
 // MARK: - View
 
+/// The photo fills the half. A caption field floats at the top; library, camera, paste and
+/// remove are glass icon buttons at the bottom center.
 struct PhotoSurfaceView: View {
     @Bindable var model: PhotoSurfaceModel
     @FocusState private var captionFocused: Bool
 
     var body: some View {
         ZStack {
-            Theme.ink2.ignoresSafeArea()
+            Theme.ink.ignoresSafeArea()
 
             if let image = model.image {
-                photoContent(image)
-                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
-            } else {
-                emptyState
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+                    .ignoresSafeArea()
                     .transition(.opacity)
+                    .accessibilityLabel(model.caption.isEmpty ? "Photo" : model.caption)
+            } else {
+                ContentUnavailableView {
+                    Label("Add a Photo", systemImage: "photo.on.rectangle.angled")
+                } description: {
+                    Text("Try your room on one side and furniture on the other, then fold to see them together. Menus, receipts and screenshots work too.")
+                }
+                .transition(.opacity)
             }
 
             if model.isLoading {
                 ProgressView()
                     .controlSize(.large)
-                    .tint(SurfaceKind.photo.tint)
                     .padding(20)
-                    .glassEffect(.regular, in: .rect(cornerRadius: Theme.radiusCard))
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
             }
         }
+        .overlay(alignment: .top) {
+            if model.hasContent {
+                captionField
+                    .padding(.horizontal, 10)
+                    .padding(.top, 10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .overlay(alignment: .bottom) {
+            VStack(spacing: 10) {
+                if let error = model.errorMessage {
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .glassEffect(.regular, in: .capsule)
+                        .transition(.opacity)
+                }
+                actions
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.ink.ignoresSafeArea())
         .animation(Theme.snappy, value: model.hasContent)
         .animation(Theme.snappy, value: model.isLoading)
+        .animation(Theme.snappy, value: model.errorMessage)
         .onChange(of: model.pickerItem) { _, item in
             model.handlePickerItem(item)
         }
@@ -249,113 +284,67 @@ struct PhotoSurfaceView: View {
         }
     }
 
-    // MARK: Empty
+    // MARK: Actions (bottom center)
 
-    private var emptyState: some View {
-        VStack(spacing: 18) {
-            SurfaceEmptyState(
-                symbol: "photo.on.rectangle.angled",
-                title: "Add a photo",
-                hint: "Try your room on one side and furniture on the other. Fold to see them together. Menus, receipts and screenshots work too.",
-                tint: SurfaceKind.photo.tint
-            )
-            .frame(maxHeight: 200)
+    private var actions: some View {
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                PhotosPicker(selection: $model.pickerItem, matching: .images, photoLibrary: .shared()) {
+                    iconLabel("photo.on.rectangle")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Choose from Library")
 
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    PhotosPicker(selection: $model.pickerItem, matching: .images, photoLibrary: .shared()) {
-                        pickerLabel("Library", symbol: "photo.on.rectangle")
+                if PhotoSurfaceModel.isCameraAvailable {
+                    Button {
+                        model.openCamera()
+                    } label: {
+                        iconLabel("camera")
                     }
                     .buttonStyle(.plain)
-
-                    if PhotoSurfaceModel.isCameraAvailable {
-                        GlassButton(title: "Camera", symbol: "camera") {
-                            model.openCamera()
-                        }
-                    }
+                    .accessibilityLabel("Take Photo")
                 }
 
-                GlassButton(title: "Paste image", symbol: "doc.on.clipboard") {
+                Button {
                     model.pasteImage()
+                } label: {
+                    iconLabel("doc.on.clipboard")
                 }
-            }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Paste Image")
 
-            if let error = model.errorMessage {
-                Text(error)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 240)
-                    .transition(.opacity)
-            }
-        }
-        .padding(.bottom, 20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(Theme.snappy, value: model.errorMessage)
-    }
-
-    private func pickerLabel(_ title: String, symbol: String) -> some View {
-        HStack(spacing: 7) {
-            Image(systemName: symbol).font(.system(size: 13, weight: .semibold))
-            Text(title).font(.system(size: 14, weight: .semibold))
-        }
-        .foregroundStyle(Theme.textPrimary)
-        .padding(.horizontal, 15)
-        .padding(.vertical, 10)
-        .glassEffect(.regular.interactive(), in: .capsule)
-    }
-
-    // MARK: Photo
-
-    private func photoContent(_ image: UIImage) -> some View {
-        VStack(spacing: 0) {
-            ZStack(alignment: .topTrailing) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(10)
-
-                HStack(spacing: 6) {
-                    PhotosPicker(selection: $model.pickerItem, matching: .images, photoLibrary: .shared()) {
-                        Image(systemName: "photo.on.rectangle")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .frame(width: 30, height: 30)
-                            .glassEffect(.regular.interactive(), in: .circle)
+                if model.hasContent {
+                    Button {
+                        model.clear()
+                    } label: {
+                        iconLabel("trash")
                     }
                     .buttonStyle(.plain)
-
-                    if PhotoSurfaceModel.isCameraAvailable {
-                        GlassIconButton(symbol: "camera", size: 30) {
-                            model.openCamera()
-                        }
-                    }
-
-                    GlassIconButton(symbol: "xmark", size: 30) {
-                        model.clear()
-                    }
+                    .accessibilityLabel("Remove Photo")
                 }
-                .padding(16)
             }
-
-            captionField
-                .padding(.horizontal, 10)
-                .padding(.bottom, 10)
         }
     }
+
+    private func iconLabel(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.body.weight(.medium))
+            .foregroundStyle(.primary)
+            .frame(width: 44, height: 44)
+            .glassEffect(.regular.interactive(), in: .circle)
+    }
+
+    // MARK: Caption (top)
 
     private var captionField: some View {
         HStack(spacing: 8) {
             Image(systemName: "text.quote")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(captionFocused || !model.caption.isEmpty ? SurfaceKind.photo.tint : Theme.textTertiary)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
 
-            TextField("Add a caption (optional)", text: $model.caption)
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.textPrimary)
-                .tint(SurfaceKind.photo.tint)
+            TextField("Add a caption", text: $model.caption)
+                .font(.subheadline)
                 .submitLabel(.done)
                 .focused($captionFocused)
                 .onSubmit { captionFocused = false }
@@ -365,14 +354,18 @@ struct PhotoSurfaceView: View {
                     model.caption = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.textTertiary)
+                        .font(.body)
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 32, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Clear caption")
             }
         }
-        .padding(.horizontal, 12)
-        .frame(height: 34)
+        .padding(.leading, 14)
+        .padding(.trailing, 6)
+        .frame(minHeight: 44)
         .frame(maxWidth: .infinity)
         .glassEffect(.regular, in: .capsule)
     }

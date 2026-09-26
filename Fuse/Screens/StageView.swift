@@ -90,13 +90,14 @@ struct StageView: View {
 // MARK: - HalfView
 
 /// One half of the phone. Either the home screen (a grid of apps) or one app, full bleed,
-/// with an iOS-style home bar to go back. No Fuse chrome.
+/// with an iOS-style home indicator to go back. The indicator is a bottom safe-area inset,
+/// so each surface's own chrome clears it while its content may run underneath.
 struct HalfView: View {
     let pane: Pane
     @Bindable var model: AppModel
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             if pane.isHome {
                 HomeScreen(pane: pane, model: model)
                     .transition(.asymmetric(insertion: .opacity, removal: .scale(scale: 1.08).combined(with: .opacity)))
@@ -104,10 +105,8 @@ struct HalfView: View {
                 SurfaceRegistry.view(for: pane.model)
                     .id(pane.kind)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .safeAreaInset(edge: .bottom, spacing: 0) { homeIndicator }
                     .transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity), removal: .opacity))
-
-                homeBar
-                    .padding(.bottom, 6)
             }
         }
         .background(Theme.ink.ignoresSafeArea())
@@ -116,12 +115,12 @@ struct HalfView: View {
     }
 
     /// The home indicator. Tap or swipe up to return this half to the home screen.
-    private var homeBar: some View {
+    private var homeIndicator: some View {
         Capsule()
-            .fill(.primary.opacity(0.35))
+            .fill(.primary.opacity(0.3))
             .frame(width: 96, height: 5)
-            .padding(.horizontal, 40)
-            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .frame(height: 34)
             .contentShape(Rectangle())
             .onTapGesture {
                 Haptics.soft()
@@ -136,7 +135,10 @@ struct HalfView: View {
                         }
                     }
             )
+            .accessibilityElement()
             .accessibilityLabel("Home")
+            .accessibilityHint("Returns this screen to the app grid")
+            .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -167,8 +169,8 @@ struct HomeScreen: View {
         ZStack {
             wallpaper
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 28) {
-                    LazyVGrid(columns: columns, spacing: 22) {
+                VStack(spacing: 24) {
+                    LazyVGrid(columns: columns, spacing: 24) {
                         ForEach(Array(SurfaceRegistry.dockOrder.enumerated()), id: \.element) { index, kind in
                             appButton(kind)
                                 .popIn(popped, index: index)
@@ -177,7 +179,7 @@ struct HomeScreen: View {
 
                     sectionLabel("Fuse")
 
-                    LazyVGrid(columns: columns, spacing: 22) {
+                    LazyVGrid(columns: columns, spacing: 24) {
                         ForEach(Array(utilities.enumerated()), id: \.offset) { index, item in
                             systemButton(item.title, symbol: item.symbol, tint: item.tint, action: item.action)
                                 .popIn(popped, index: SurfaceRegistry.dockOrder.count + index)
@@ -185,8 +187,8 @@ struct HomeScreen: View {
                     }
                 }
                 .padding(.horizontal, Theme.margin)
-                .padding(.top, 44)
-                .padding(.bottom, 32)
+                .padding(.top, 24)
+                .padding(.bottom, 24)
             }
         }
         .onAppear {
@@ -200,25 +202,23 @@ struct HomeScreen: View {
         }
     }
 
-    /// Very quiet wallpaper: the system background with a faint tint toward the top.
+    /// Very quiet wallpaper: the system background with a faint accent wash.
     private var wallpaper: some View {
-        LinearGradient(
-            colors: scheme == .dark
-                ? [Color(red: 0.08, green: 0.10, blue: 0.14), Color(red: 0.03, green: 0.03, blue: 0.05)]
-                : [Color(red: 0.92, green: 0.95, blue: 0.99), Color(red: 0.97, green: 0.97, blue: 0.98)],
-            startPoint: .top, endPoint: .bottom
-        )
+        ZStack {
+            Theme.ink
+            Color.accentColor.opacity(scheme == .dark ? 0.08 : 0.05)
+        }
         .ignoresSafeArea()
     }
 
-    /// Thin divider with a small centered label, separating the apps from Fuse's own utilities.
+    /// Hairline with a small centered label, separating the apps from Fuse's own utilities.
     private func sectionLabel(_ text: String) -> some View {
         HStack(spacing: 10) {
-            Rectangle().fill(.secondary.opacity(0.25)).frame(height: 0.5)
+            Rectangle().fill(Theme.line).frame(height: 0.5)
             Text(text)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
-            Rectangle().fill(.secondary.opacity(0.25)).frame(height: 0.5)
+            Rectangle().fill(Theme.line).frame(height: 0.5)
         }
         .padding(.horizontal, 8)
         .accessibilityElement(children: .combine)
@@ -235,7 +235,7 @@ struct HomeScreen: View {
                     .overlay(alignment: .topTrailing) {
                         if surface.hasContent {
                             Circle().fill(Color.accentColor).frame(width: 10, height: 10)
-                                .overlay(Circle().stroke(.white, lineWidth: 2))
+                                .overlay(Circle().stroke(Theme.ink, lineWidth: 2))
                                 .offset(x: 3, y: -3)
                         }
                     }
@@ -248,6 +248,7 @@ struct HomeScreen: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(kind.title)
+        .accessibilityValue(surface.hasContent ? "Has content" : "")
     }
 
     private func systemButton(_ title: String, symbol: String, tint: Color, action: @escaping () -> Void) -> some View {
@@ -305,6 +306,6 @@ struct AppGlyph: View {
                     .font(.system(size: size * 0.5, weight: .medium))
                     .foregroundStyle(.white)
             )
+            .accessibilityHidden(true)
     }
 }
-

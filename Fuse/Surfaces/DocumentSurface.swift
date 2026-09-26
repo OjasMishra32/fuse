@@ -304,7 +304,7 @@ private struct PDFKitView: UIViewRepresentable {
         view.displayMode = .singlePageContinuous
         view.displayDirection = .vertical
         view.pageShadowsEnabled = false
-        view.backgroundColor = UIColor(Theme.ink2)
+        view.backgroundColor = .secondarySystemBackground
         view.pageBreakMargins = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
         view.document = document
         return view
@@ -320,16 +320,27 @@ private struct PDFKitView: UIViewRepresentable {
 
 // MARK: - View
 
+/// The file fills the half below a filename pill. No frame around the content.
 struct DocumentSurfaceView: View {
     @Bindable var model: DocumentSurfaceModel
 
+    private static let codeExtensions: Set<String> = ["SWIFT", "JSON", "JS", "TS", "PY", "RB", "GO", "RS", "C", "H", "CPP", "M", "SH", "YAML", "YML", "TOML", "XML", "HTML", "CSS", "SQL"]
+
     var body: some View {
         ZStack {
-            Theme.ink2.ignoresSafeArea()
+            Theme.ink.ignoresSafeArea()
 
             if let content = model.content {
-                documentContent(content)
-                    .transition(.opacity)
+                VStack(spacing: 0) {
+                    header(for: content)
+                        .padding(.horizontal, 10)
+                        .padding(.top, 10)
+                        .padding(.bottom, 8)
+                    body(for: content)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .ignoresSafeArea(edges: [.horizontal, .bottom])
+                }
+                .transition(.opacity)
             } else {
                 emptyState
                     .transition(.opacity)
@@ -338,13 +349,11 @@ struct DocumentSurfaceView: View {
             if model.isLoading {
                 ProgressView()
                     .controlSize(.large)
-                    .tint(SurfaceKind.document.tint)
                     .padding(20)
-                    .glassEffect(.regular, in: .rect(cornerRadius: Theme.radiusCard))
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.ink.ignoresSafeArea())
         .animation(Theme.snappy, value: model.hasContent)
         .fileImporter(
             isPresented: $model.showImporter,
@@ -363,112 +372,126 @@ struct DocumentSurfaceView: View {
     // MARK: Empty
 
     private var emptyState: some View {
-        VStack(spacing: 18) {
-            SurfaceEmptyState(
-                symbol: "doc.text.magnifyingglass",
-                title: "Open a file",
-                hint: "PDFs, text, code, JSON or images from Files. The other screen gets to read it.",
-                tint: SurfaceKind.document.tint
-            )
-            .frame(maxHeight: 200)
-
-            HStack(spacing: 8) {
-                EnergyButton(title: "Choose file", symbol: "folder") {
+        ContentUnavailableView {
+            Label("Open a File", systemImage: "doc.text.magnifyingglass")
+        } description: {
+            Text("PDFs, text, code, JSON or images from Files. The other screen gets to read it.")
+        } actions: {
+            VStack(spacing: 8) {
+                Button {
                     model.chooseFile()
+                } label: {
+                    Label("Choose File", systemImage: "folder")
                 }
-                GlassButton(title: "Paste text", symbol: "doc.on.clipboard") {
-                    model.pasteText()
-                }
-            }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
 
-            if let error = model.errorMessage {
-                Text(error)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 260)
-                    .transition(.opacity)
+                Button {
+                    model.pasteText()
+                } label: {
+                    Label("Paste Text", systemImage: "doc.on.clipboard")
+                }
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+
+                if let error = model.errorMessage {
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 260)
+                        .padding(.top, 4)
+                        .transition(.opacity)
+                }
             }
+            .animation(Theme.snappy, value: model.errorMessage)
         }
-        .padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(Theme.snappy, value: model.errorMessage)
     }
 
     // MARK: Content
 
-    private func documentContent(_ content: DocumentSurfaceModel.Content) -> some View {
-        VStack(spacing: 0) {
-            header(for: content)
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+    @ViewBuilder
+    private func body(for content: DocumentSurfaceModel.Content) -> some View {
+        switch content {
+        case .pdf(let document):
+            PDFKitView(document: document)
 
-            Group {
-                switch content {
-                case .pdf(let document):
-                    PDFKitView(document: document)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
-                        .padding(.horizontal, 10)
-                        .padding(.bottom, 10)
-
-                case .text(let text):
-                    ScrollView(.vertical) {
-                        Text(text)
-                            .font(.fuseMono)
-                            .foregroundStyle(Theme.textPrimary)
-                            .lineSpacing(2)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(14)
-                    }
-                    .scrollIndicators(.hidden)
-                    .background(Theme.ink3.opacity(0.5), in: RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
-                    .padding(.horizontal, 10)
-                    .padding(.bottom, 10)
-
-                case .image(let image):
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(.horizontal, 10)
-                        .padding(.bottom, 10)
-                }
+        case .text(let text):
+            ScrollView(.vertical) {
+                Text(text)
+                    .font(Self.codeExtensions.contains(model.typeLabel) ? .fuseMono : .body)
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Theme.margin)
+                    .padding(.vertical, 8)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentMargins(.bottom, 34, for: .scrollContent)
+
+        case .image(let image):
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityLabel(model.filename.isEmpty ? "Image" : model.filename)
         }
     }
 
+    // MARK: Filename pill (top)
+
     private func header(for content: DocumentSurfaceModel.Content) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: symbol(for: content))
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(SurfaceKind.document.tint)
-                .frame(width: 30, height: 30)
-                .background(SurfaceKind.document.tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: symbol(for: content))
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(model.filename.isEmpty ? "Untitled" : model.filename)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Text(subtitle(for: content))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassEffect(.regular, in: .capsule)
+                .accessibilityElement(children: .combine)
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(model.filename.isEmpty ? "Untitled" : model.filename)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Text(subtitle(for: content))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.textTertiary)
-            }
+                Button {
+                    model.chooseFile()
+                } label: {
+                    iconLabel("folder")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Choose Another File")
 
-            Spacer(minLength: 4)
-
-            GlassIconButton(symbol: "folder", size: 30) {
-                model.chooseFile()
-            }
-            GlassIconButton(symbol: "xmark", size: 30) {
-                model.clear()
+                Button {
+                    model.clear()
+                } label: {
+                    iconLabel("xmark")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close File")
             }
         }
+    }
+
+    private func iconLabel(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.body.weight(.medium))
+            .foregroundStyle(.primary)
+            .frame(width: 44, height: 44)
+            .glassEffect(.regular.interactive(), in: .circle)
     }
 
     private func symbol(for content: DocumentSurfaceModel.Content) -> String {

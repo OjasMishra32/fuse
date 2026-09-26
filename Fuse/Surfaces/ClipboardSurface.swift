@@ -154,174 +154,159 @@ final class ClipboardSurfaceModel: SurfaceModel {
 
 // MARK: - View
 
+/// One Paste button while empty; whatever was pasted fills the half after, under a small pill
+/// that says what it is.
 struct ClipboardSurfaceView: View {
     let model: ClipboardSurfaceModel
 
     var body: some View {
         ZStack {
-            Theme.ink2.ignoresSafeArea()
+            Theme.ink.ignoresSafeArea()
 
             if let content = model.content {
-                contentView(content)
-                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                VStack(spacing: 0) {
+                    header(for: content)
+                        .padding(.horizontal, 10)
+                        .padding(.top, 10)
+                        .padding(.bottom, 8)
+                    body(for: content)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .ignoresSafeArea(edges: [.horizontal, .bottom])
+                }
+                .transition(.opacity)
             } else {
                 emptyState
                     .transition(.opacity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.ink.ignoresSafeArea())
         .animation(Theme.snappy, value: model.hasContent)
     }
 
     // MARK: Empty
 
     private var emptyState: some View {
-        VStack(spacing: 22) {
-            SurfaceEmptyState(
-                symbol: "doc.on.clipboard",
-                title: "Bring in your clipboard",
-                hint: "Text, a link or an image you've copied anywhere on your phone.",
-                tint: SurfaceKind.clipboard.tint
-            )
-            .frame(maxHeight: 200)
-
-            Button {
-                model.pasteFromClipboard()
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "doc.on.clipboard.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Paste from clipboard")
-                        .font(.system(size: 16, weight: .semibold))
+        ContentUnavailableView {
+            Label("Bring In Your Clipboard", systemImage: "doc.on.clipboard")
+        } description: {
+            Text("Text, a link or an image you've copied anywhere on your phone.")
+        } actions: {
+            VStack(spacing: 8) {
+                Button {
+                    model.pasteFromClipboard()
+                } label: {
+                    Label("Paste", systemImage: "doc.on.clipboard")
                 }
-                .foregroundStyle(.black.opacity(0.9))
-                .padding(.horizontal, 24)
-                .padding(.vertical, 15)
-                .background(
-                    LinearGradient(colors: [SurfaceKind.clipboard.tint, Theme.cyan], startPoint: .leading, endPoint: .trailing),
-                    in: Capsule()
-                )
-                .shadow(color: Theme.cyan.opacity(0.35), radius: 16, y: 8)
-            }
-            .buttonStyle(.plain)
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
 
-            if let message = model.lastMessage {
-                Text(message)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 260)
-                    .transition(.opacity)
+                if let message = model.lastMessage {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 260)
+                        .padding(.top, 4)
+                        .transition(.opacity)
+                }
             }
+            .animation(Theme.snappy, value: model.lastMessage)
         }
-        .padding(.bottom, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(Theme.snappy, value: model.lastMessage)
     }
 
     // MARK: Content
 
     @ViewBuilder
-    private func contentView(_ content: ClipboardSurfaceModel.Content) -> some View {
-        VStack(spacing: 0) {
-            header(for: content)
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-
-            switch content {
-            case .text(let text):
-                ScrollView {
-                    Text(text)
-                        .font(.system(size: 15))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineSpacing(3)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 14)
-                }
-                .scrollIndicators(.hidden)
-
-            case .url(let url):
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "link")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(SurfaceKind.clipboard.tint)
-                            .frame(width: 36, height: 36)
-                            .background(SurfaceKind.clipboard.tint.opacity(0.14), in: Circle())
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(url.host ?? "Link")
-                                .font(.fuseHeadline)
-                                .foregroundStyle(Theme.textPrimary)
-                                .lineLimit(1)
-                            Text(url.absoluteString)
-                                .font(.fuseCaption)
-                                .foregroundStyle(Theme.textSecondary)
-                                .lineLimit(3)
-                                .textSelection(.enabled)
-                        }
-                    }
-                    .padding(14)
+    private func body(for content: ClipboardSurfaceModel.Content) -> some View {
+        switch content {
+        case .text(let text):
+            ScrollView {
+                Text(text)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.ink3, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
+                    .padding(.horizontal, Theme.margin)
+                    .padding(.vertical, 8)
+            }
+            .scrollIndicators(.hidden)
+            .contentMargins(.bottom, 34, for: .scrollContent)
 
-            case .image(let image):
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 12)
+        case .url(let url):
+            ScrollView {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(url.host ?? "Link")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                    Text(url.absoluteString)
+                        .font(.footnote)
+                        .foregroundStyle(Color.accentColor)
+                        .textSelection(.enabled)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Theme.margin)
+                .padding(.vertical, 8)
+            }
+            .scrollIndicators(.hidden)
+
+        case .image(let image):
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityLabel("Pasted image")
+        }
+    }
+
+    // MARK: Pill (top)
+
+    private func header(for content: ClipboardSurfaceModel.Content) -> some View {
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: symbol(for: content))
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    Text(label(for: content))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassEffect(.regular, in: .capsule)
+                .accessibilityElement(children: .combine)
+
+                Button {
+                    model.pasteFromClipboard()
+                } label: {
+                    iconLabel("doc.on.clipboard")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Paste Again")
+
+                Button {
+                    model.clear()
+                } label: {
+                    iconLabel("xmark")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear")
             }
         }
     }
 
-    private func header(for content: ClipboardSurfaceModel.Content) -> some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 5) {
-                Image(systemName: symbol(for: content))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(SurfaceKind.clipboard.tint)
-                Text(label(for: content))
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 7)
-            .glassEffect(.regular, in: .capsule)
-
-            Spacer(minLength: 0)
-
-            Button {
-                model.pasteFromClipboard()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .frame(width: 30, height: 30)
-                    .glassEffect(.regular.interactive(), in: .circle)
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                model.clear()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .frame(width: 30, height: 30)
-                    .glassEffect(.regular.interactive(), in: .circle)
-            }
-            .buttonStyle(.plain)
-        }
+    private func iconLabel(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.body.weight(.medium))
+            .foregroundStyle(.primary)
+            .frame(width: 44, height: 44)
+            .glassEffect(.regular.interactive(), in: .circle)
     }
 
     private func symbol(for content: ClipboardSurfaceModel.Content) -> String {
