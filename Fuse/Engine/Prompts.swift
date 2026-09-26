@@ -110,7 +110,15 @@ enum Prompts {
         var sections = ["Create one finished image by combining the attached references."]
         var index = 0
         for (side, snapshot) in [("LEFT", left), ("RIGHT", right)] {
-            guard snapshot.imageEditReference != nil else { continue }
+            guard snapshot.imageEditReference != nil else {
+                // A notes pane or a web page without an extracted photo still supplies
+                // context. Do not imply that its screenshot is part of the upload.
+                var context = snapshot
+                context.image = nil
+                context.heroImage = nil
+                sections.append("\(side) screen context (no image reference is attached for this screen):\n\(describe(context, side: side))")
+                continue
+            }
             index += 1
             sections.append("Reference image \(index) is the \(side) screen.\n\(describe(snapshot, side: side))")
             if snapshot.heroImage != nil {
