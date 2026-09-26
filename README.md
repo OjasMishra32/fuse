@@ -8,6 +8,15 @@ The hinge is not navigation. It is the command.
 
 Built in a weekend for Bitrig Hacks, iPhone Duo Edition.
 
+## Sponsors, and what each one does in Fuse
+
+| Sponsor | Where it lives | What it powers |
+|---|---|---|
+| **OpenAI** | `Fuse/Engine/OpenAIClient.swift`, `FuseEngine.swift`, `Prompts.swift`, `IntentPreview.swift` | `gpt-6-sol` reads both screens (text + pixels) and writes the typed result; a second pre-read proposes the top three fuses on the seam before you fold; `gpt-image-2` composes one image from the two screens' photos. |
+| **RevenueCat** | `Fuse/Services/RevenueCatService.swift`, `Fuse/Screens/PaywallView.swift`, `FuseControls` | Purchases SDK configured at launch, `pro` entitlement, customer info stream, custom paywall (test store or demo mode), free quota bookkeeping. Opted in for the RevenueCat prize. |
+| **Supabase** | `Fuse/Services/SupabaseService.swift`, `Fuse/Screens/CommunityView.swift`, `supabase/schema.sql` | Anonymous auth, `fuses` table with RLS, every result recorded, public community feed with pull-to-refresh. |
+| **Bitrig / Xcode 27.1** | whole project | Built and filmed on the iPhone Duo simulator; `onHingeChange`, `reservedRegions(.division)`, cover display. |
+
 ## What it is
 
 Most foldable software treats the second screen as more room. Fuse treats the fold as a verb. Two screens hold two things; closing them says "combine these." There is no feature menu. The relationship between the two screens is the feature, and the model decides what the most useful combination is.
