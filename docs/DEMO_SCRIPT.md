@@ -130,3 +130,11 @@ DO: In real Safari, read the Islands of Adventure page. Open a second tab, searc
 SAY: "I was just reading. I didn't open anything. I tap Fuse — and the two things I was looking at are already the two halves." (they load; the seam shows "Fold: Plan the day")
 DO: Fold the phone.
 SAY: "Fold means combine." (result on the cover) "Open it up —" (full itinerary on the map).
+
+
+## Opening beat, final: Fuse inside Safari (25 s)
+
+DO: Two Safari windows side by side: a Wikipedia article on the left, a Google search on the right. Tap the extension button in Safari's address bar, tap Fuse.
+SAY: "I'm just in Safari. Two pages. I tap Fuse."
+DO: Tap "Fuse these". The result appears in the popup over Safari.
+SAY: "It read both pages and fused them, without leaving Safari. Open Fuse and it's there in full."

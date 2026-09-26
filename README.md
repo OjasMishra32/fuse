@@ -39,6 +39,12 @@ Any two real apps, side by side on the Duo, no Fuse open:
 
 Fuse opens with the two halves of that screenshot as its two screens, melts them, and produces the result. Saying "Fuse my screen" to Siri does the same, and the plain **Fuse** shortcut with nothing on the halves uses the newest screenshot in Photos.
 
+## Fuse inside Safari (works in the simulator)
+
+Two Safari windows side by side, the way the Duo does multitasking. Tap Safari's extension button, tap **Fuse**: the popup lists the two pages you're reading, "Fuse these" runs the engine inside the extension, and the result appears right there over Safari. Nothing else opens. Open Fuse later and the same result is waiting in full.
+
+One-time setup: Settings → Apps → Safari → Extensions → Fuse → on, allow on all websites; open Fuse once so it shares its key with the extension.
+
 ## Fuse follows you (works in the simulator)
 
 You never have to start in Fuse.
