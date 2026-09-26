@@ -33,7 +33,7 @@ struct CommunityView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        
         .tint(Theme.cyan)
         .task { await load() }
     }

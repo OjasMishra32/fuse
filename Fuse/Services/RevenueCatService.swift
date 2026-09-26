@@ -40,7 +40,7 @@ final class RevenueCatService {
     /// Entitlement identifier configured in the RevenueCat dashboard.
     static let entitlementID = "pro"
     /// Fuses a free user gets per calendar day.
-    static let freeDailyLimit = 3
+    static let freeDailyLimit = 999   // Fuse is free; the paywall is a demo of RevenueCat, never a wall
 
     // MARK: Observable state
 

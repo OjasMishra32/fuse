@@ -56,31 +56,25 @@ extension DeviceHinge.Status {
     }
 }
 
-/// Small capsule showing the live hinge angle. Doubles as the entry to the dev panel (triple-tap).
+/// Small, quiet readout of the live hinge angle.
 struct HingeBadge: View {
     var hinge: DeviceHinge?
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             Image(systemName: hinge == nil ? "iphone.slash" : "iphone.gen3")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.caption2.weight(.medium))
             if let hinge {
                 Text("\(Int(hinge.angle.degrees.rounded()))°")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
+                    .font(.caption.monospacedDigit())
                     .contentTransition(.numericText(value: hinge.angle.degrees))
                 Text(hinge.status.fuseLabel)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(.caption)
             } else {
                 Text("No hinge")
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(.caption)
             }
         }
-        .foregroundStyle(Theme.textPrimary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .glassEffect(.regular, in: .capsule)
+        .foregroundStyle(.secondary)
     }
 }

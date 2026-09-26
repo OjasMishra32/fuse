@@ -39,7 +39,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        
         .tint(Theme.cyan)
         .onAppear(perform: load)
         .onChange(of: focusedKey) { previous, _ in

@@ -416,13 +416,12 @@ struct DocumentSurfaceView: View {
                         .padding(.bottom, 10)
 
                 case .text(let text):
-                    ScrollView([.vertical, .horizontal]) {
+                    ScrollView(.vertical) {
                         Text(text)
                             .font(.fuseMono)
                             .foregroundStyle(Theme.textPrimary)
                             .lineSpacing(2)
                             .textSelection(.enabled)
-                            .fixedSize(horizontal: true, vertical: false)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(14)
                     }

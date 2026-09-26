@@ -3,110 +3,95 @@ import UIKit
 
 // MARK: - Fuse design language
 //
-// Dark, quiet, one spectacular moment (the melt). Liquid Glass for chrome, SF Pro for text,
-// a single violet→cyan "energy" gradient reserved for the seam and anything that is fusing.
-// Everything else is neutral so the energy reads.
+// It should look like Apple shipped it. System colors, system materials, SF Pro, native
+// iOS 26 glass button styles, and the device's own appearance (light or dark). One accent,
+// no gradients, no glow. The only theatrical moment is the melt, and even that is glass.
 
 enum Theme {
-    // Palette
-    static let ink = Color(red: 0.035, green: 0.04, blue: 0.07)             // page background
-    static let ink2 = Color(red: 0.07, green: 0.08, blue: 0.13)             // raised surface
-    static let ink3 = Color(red: 0.11, green: 0.12, blue: 0.18)             // pane chrome
-    static let line = Color.white.opacity(0.08)
-    static let textPrimary = Color.white.opacity(0.94)
-    static let textSecondary = Color.white.opacity(0.58)
-    static let textTertiary = Color.white.opacity(0.36)
+    // Surfaces (adapt to light/dark automatically)
+    static let ink = Color(uiColor: .systemBackground)
+    static let ink2 = Color(uiColor: .secondarySystemBackground)
+    static let ink3 = Color(uiColor: .tertiarySystemBackground)
+    static let grouped = Color(uiColor: .systemGroupedBackground)
+    static let groupedCard = Color(uiColor: .secondarySystemGroupedBackground)
+    static let line = Color(uiColor: .separator)
 
-    static let violet = Color(red: 0.55, green: 0.42, blue: 1.0)
-    static let cyan = Color(red: 0.32, green: 0.86, blue: 1.0)
-    static let magenta = Color(red: 1.0, green: 0.40, blue: 0.78)
-    static let mint = Color(red: 0.36, green: 0.95, blue: 0.72)
+    // Text
+    static let textPrimary = Color.primary
+    static let textSecondary = Color.secondary
+    static let textTertiary = Color(uiColor: .tertiaryLabel)
 
-    /// The fuse energy gradient. Left → right across the seam.
-    static let energy = LinearGradient(colors: [violet, cyan], startPoint: .leading, endPoint: .trailing)
-    static let energyVertical = LinearGradient(colors: [violet, cyan], startPoint: .top, endPoint: .bottom)
-    static let energyAngular = AngularGradient(colors: [violet, cyan, magenta, violet], center: .center)
+    // Accent. Kept as named tokens because the rest of the app refers to them.
+    static let accent = Color.accentColor
+    static let violet = Color.accentColor
+    static let cyan = Color(uiColor: .systemTeal)
+    static let magenta = Color(uiColor: .systemPink)
+    static let mint = Color(uiColor: .systemMint)
 
-    // Radii — concentric with the Duo's corners
-    static let radiusPane: CGFloat = 26
-    static let radiusCard: CGFloat = 18
-    static let radiusChip: CGFloat = 12
+    /// Flat accent fills. Named "energy" for historical reasons; there is no gradient any more.
+    static let energy = LinearGradient(colors: [Color.accentColor, Color.accentColor], startPoint: .leading, endPoint: .trailing)
+    static let energyVertical = LinearGradient(colors: [Color.accentColor, Color.accentColor], startPoint: .top, endPoint: .bottom)
+    static let energyAngular = AngularGradient(colors: [Color.accentColor.opacity(0.9), Color.accentColor.opacity(0.35), Color.accentColor.opacity(0.9)], center: .center)
+
+    // Radii — iOS inset-grouped scale
+    static let radiusPane: CGFloat = 0
+    static let radiusCard: CGFloat = 14
+    static let radiusChip: CGFloat = 10
 
     // Motion
     static let snappy = Animation.spring(response: 0.36, dampingFraction: 0.82)
     static let smooth = Animation.spring(response: 0.55, dampingFraction: 0.86)
     static let melt = Animation.interpolatingSpring(stiffness: 120, damping: 18)
 
-    /// Background used everywhere: ink with a faint mesh so glass has something to refract.
+    /// Plain system background.
     static var background: some View {
-        ZStack {
-            ink.ignoresSafeArea()
-            MeshGradient(
-                width: 3, height: 3,
-                points: [
-                    [0, 0], [0.5, 0], [1, 0],
-                    [0, 0.5], [0.5, 0.5], [1, 0.5],
-                    [0, 1], [0.5, 1], [1, 1]
-                ],
-                colors: [
-                    ink, ink2, ink,
-                    Color(red: 0.10, green: 0.08, blue: 0.20), ink2, Color(red: 0.05, green: 0.12, blue: 0.18),
-                    ink, ink2, ink
-                ]
-            )
-            .opacity(0.9)
-            .ignoresSafeArea()
-        }
+        Color(uiColor: .systemBackground).ignoresSafeArea()
     }
 }
 
-// MARK: - Typography
+// MARK: - Typography (system text styles)
 
 extension Font {
     static func fuse(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .default)
+        .system(size: size, weight: weight)
     }
-    static let fuseWordmark = Font.system(size: 15, weight: .semibold, design: .rounded)
-    static let fuseTitle = Font.system(size: 28, weight: .bold)
-    static let fuseHeadline = Font.system(size: 17, weight: .semibold)
-    static let fuseBody = Font.system(size: 15, weight: .regular)
-    static let fuseCaption = Font.system(size: 12, weight: .medium)
-    static let fuseMono = Font.system(size: 13, weight: .regular, design: .monospaced)
+    static let fuseWordmark = Font.subheadline.weight(.semibold)
+    static let fuseTitle = Font.title.weight(.bold)
+    static let fuseHeadline = Font.headline
+    static let fuseBody = Font.body
+    static let fuseCaption = Font.footnote.weight(.medium)
+    static let fuseMono = Font.system(.footnote, design: .monospaced)
 }
 
-// MARK: - Reusable chrome
+// MARK: - Reusable chrome (thin wrappers over native styles)
 
-/// A capsule chip with an SF Symbol, used for the surface dock and result actions.
+/// Capsule chip on glass. Selected chips use the prominent glass style.
 struct Chip: View {
     var title: String
     var symbol: String
-    var tint: Color = Theme.textPrimary
+    var tint: Color = .accentColor
     var selected: Bool = false
     var action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: symbol)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(title)
-                    .font(.fuseCaption)
-                    .lineLimit(1)
-            }
-            .foregroundStyle(selected ? Color.black.opacity(0.85) : tint)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 7)
-            .background {
-                if selected {
-                    Capsule().fill(tint)
-                } else {
-                    Capsule().fill(.white.opacity(0.06))
-                        .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
-                }
+        Group {
+            if selected {
+                Button(action: action) { label }
+                    .buttonStyle(.glassProminent)
+                    .tint(tint)
+            } else {
+                Button(action: action) { label }
+                    .buttonStyle(.glass)
             }
         }
-        .buttonStyle(.plain)
-        .contentShape(Capsule())
+        .buttonBorderShape(.capsule)
+        .controlSize(.small)
+    }
+
+    private var label: some View {
+        Label(title, systemImage: symbol)
+            .font(.footnote.weight(.medium))
+            .lineLimit(1)
     }
 }
 
@@ -114,22 +99,22 @@ struct Chip: View {
 struct GlassIconButton: View {
     var symbol: String
     var size: CGFloat = 36
-    var tint: Color = Theme.textPrimary
+    var tint: Color = .primary
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: size * 0.42, weight: .semibold))
+                .font(.system(size: size * 0.42, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: size, height: size)
-                .glassEffect(.regular.interactive(), in: .circle)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
     }
 }
 
-/// Primary call-to-action with the energy gradient.
+/// Primary call to action: native prominent glass in the accent color.
 struct EnergyButton: View {
     var title: String
     var symbol: String? = nil
@@ -137,17 +122,15 @@ struct EnergyButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
-                if let symbol { Image(systemName: symbol).font(.system(size: 14, weight: .bold)) }
-                Text(title).font(.system(size: 15, weight: .semibold))
+            if let symbol {
+                Label(title, systemImage: symbol).fontWeight(.semibold)
+            } else {
+                Text(title).fontWeight(.semibold)
             }
-            .foregroundStyle(.black.opacity(0.9))
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .background(Theme.energy, in: Capsule())
-            .shadow(color: Theme.violet.opacity(0.35), radius: 14, y: 6)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glassProminent)
+        .buttonBorderShape(.capsule)
+        .controlSize(.regular)
     }
 }
 
@@ -159,31 +142,29 @@ struct GlassButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 7) {
-                if let symbol { Image(systemName: symbol).font(.system(size: 13, weight: .semibold)) }
-                Text(title).font(.system(size: 14, weight: .semibold))
+            if let symbol {
+                Label(title, systemImage: symbol).fontWeight(.medium)
+            } else {
+                Text(title).fontWeight(.medium)
             }
-            .foregroundStyle(Theme.textPrimary)
-            .padding(.horizontal, 15)
-            .padding(.vertical, 10)
-            .glassEffect(.regular.interactive(), in: .capsule)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glass)
+        .buttonBorderShape(.capsule)
+        .controlSize(.regular)
     }
 }
 
-/// Section label used inside results.
+/// Section label used inside results (matches inset-grouped section headers).
 struct Eyebrow: View {
     var text: String
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: 11, weight: .semibold))
-            .tracking(1.1)
-            .foregroundStyle(Theme.textTertiary)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
     }
 }
 
-/// A card surface used by result artifacts.
+/// A grouped card, like an inset-grouped table cell.
 struct ResultCard<Content: View>: View {
     var padding: CGFloat = 16
     @ViewBuilder var content: Content
@@ -191,8 +172,7 @@ struct ResultCard<Content: View>: View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))
+            .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
     }
 }
 
@@ -203,20 +183,11 @@ struct SurfaceEmptyState: View {
     var hint: String
     var tint: Color
     var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(tint.opacity(0.9))
-            Text(title)
-                .font(.fuseHeadline)
-                .foregroundStyle(Theme.textPrimary)
+        ContentUnavailableView {
+            Label(title, systemImage: symbol)
+        } description: {
             Text(hint)
-                .font(.fuseCaption)
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 240)
         }
-        .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

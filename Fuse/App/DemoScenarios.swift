@@ -26,7 +26,9 @@ struct DemoScenario: Identifiable {
     let right: Input
     let instruction: String?
 
-    static let all: [DemoScenario] = [
+    static var all: [DemoScenario] { core + more }
+
+    static let core: [DemoScenario] = [
         DemoScenario(
             id: "theme-park",
             title: "Theme park, one day",

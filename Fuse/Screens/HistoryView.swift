@@ -46,7 +46,7 @@ struct HistoryView: View {
                 Text("Past results and their images will be removed from this device.")
             }
         }
-        .preferredColorScheme(.dark)
+        
         .tint(Theme.violet)
     }
 

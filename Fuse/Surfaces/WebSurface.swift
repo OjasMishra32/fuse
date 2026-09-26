@@ -37,7 +37,7 @@ final class WebSurfaceModel: SurfaceModel {
     }
 
     static let suggestions: [Suggestion] = [
-        Suggestion(title: "Universal tickets", symbol: "ticket", url: "https://www.universalorlando.com/web/en/us/tickets-packages"),
+        Suggestion(title: "Universal tickets", symbol: "ticket", url: "https://en.wikipedia.org/wiki/Islands_of_Adventure"),
         Suggestion(title: "NYTimes", symbol: "newspaper", url: "https://www.nytimes.com"),
         Suggestion(title: "apple/swift", symbol: "chevron.left.forwardslash.chevron.right", url: "https://github.com/apple/swift"),
         Suggestion(title: "Wikipedia", symbol: "book", url: "https://en.wikipedia.org/wiki/Special:Random")
@@ -62,25 +62,28 @@ final class WebSurfaceModel: SurfaceModel {
         wv.navigationDelegate = coord
         wv.uiDelegate = coord
 
+        // WKWebView KVO always fires on the main thread; the handler type is @Sendable so we assert isolation.
         observations = [
             wv.observe(\.estimatedProgress, options: [.new]) { [weak self] view, _ in
-                self?.progress = view.estimatedProgress
+                MainActor.assumeIsolated { self?.progress = view.estimatedProgress }
             },
             wv.observe(\.title, options: [.new]) { [weak self] view, _ in
-                self?.pageTitle = view.title ?? ""
+                MainActor.assumeIsolated { self?.pageTitle = view.title ?? "" }
             },
             wv.observe(\.url, options: [.new]) { [weak self] view, _ in
-                guard let self else { return }
-                self.currentURL = view.url
-                if !self.isEditingAddress, let url = view.url, url.absoluteString != "about:blank" {
-                    self.addressText = url.absoluteString
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.currentURL = view.url
+                    if !self.isEditingAddress, let url = view.url, url.absoluteString != "about:blank" {
+                        self.addressText = url.absoluteString
+                    }
                 }
             },
             wv.observe(\.canGoBack, options: [.new]) { [weak self] view, _ in
-                self?.canGoBack = view.canGoBack
+                MainActor.assumeIsolated { self?.canGoBack = view.canGoBack }
             },
             wv.observe(\.canGoForward, options: [.new]) { [weak self] view, _ in
-                self?.canGoForward = view.canGoForward
+                MainActor.assumeIsolated { self?.canGoForward = view.canGoForward }
             }
         ]
     }
@@ -309,14 +312,13 @@ private final class WebNavigationCoordinator: NSObject, WKNavigationDelegate, WK
         model?.navigationDidFail(error)
     }
 
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // Keep everything inside the surface; never bounce out to Safari.
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
+        // Keep everything inside the surface; never bounce out to Safari or other apps.
         if let url = navigationAction.request.url, let scheme = url.scheme?.lowercased(),
            !["http", "https", "about", "file", "data", "blob"].contains(scheme) {
-            decisionHandler(.cancel)
-            return
+            return .cancel
         }
-        decisionHandler(.allow)
+        return .allow
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {

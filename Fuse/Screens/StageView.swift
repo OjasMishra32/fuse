@@ -2,9 +2,10 @@ import SwiftUI
 
 // MARK: - StageView
 //
-// The two halves of the Duo. Layout follows the physical fold (`reservedRegions(.division)`):
-// left | seam | right when the fold is vertical (book / flat), top / seam / bottom when the
-// device is in tabletop pose. Fold progress melts the panes toward the seam.
+// The two halves of the Duo, each running a full-bleed mini app. There is no app chrome:
+// the left half *is* the browser, the right half *is* Maps. Layout follows the physical fold
+// (`reservedRegions(.division)`): left | seam | right in book / flat pose, top / seam / bottom
+// in tabletop pose. Fold progress melts the halves toward the seam.
 
 struct StageView: View {
     @Bindable var model: AppModel
@@ -17,9 +18,9 @@ struct StageView: View {
             let ease = p * p * (3 - 2 * p) // smoothstep
 
             ZStack {
-                panes(fold: fold, size: size, progress: ease)
-                    .blur(radius: 18 * ease)
-                    .opacity(1 - 0.92 * ease)
+                halves(fold: fold, size: size, progress: ease)
+                    .blur(radius: 14 * ease)
+                    .opacity(1 - 0.9 * ease)
                     .allowsHitTesting(p < 0.05 && model.phase == .compose)
 
                 MeltOverlay(model: model, fold: fold, size: size)
@@ -32,30 +33,41 @@ struct StageView: View {
     }
 
     @ViewBuilder
-    private func panes(fold: FoldGeometry, size: CGSize, progress: Double) -> some View {
-        let shift: CGFloat = 46 * progress
-        let scale: CGFloat = 1 - 0.22 * progress
+    private func halves(fold: FoldGeometry, size: CGSize, progress: Double) -> some View {
+        // The halves tilt toward the hinge like the pages of a closing book, shrink a little,
+        // and are drawn in slightly so the seam feels like it is pulling them in.
+        let shift: CGFloat = 36 * progress
+        let scale: CGFloat = 1 - 0.14 * progress
+        let tilt = 22 * progress
         if fold.isVertical {
             HStack(spacing: 0) {
-                PaneView(pane: model.left, model: model)
+                HalfView(pane: model.left, model: model)
                     .frame(width: max(fold.frame.minX, 0))
+                    .clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous))
+                    .rotation3DEffect(.degrees(-tilt), axis: (x: 0, y: 1, z: 0), anchor: .trailing, perspective: 0.5)
                     .scaleEffect(scale, anchor: .trailing)
                     .offset(x: shift)
                 Color.clear.frame(width: max(fold.frame.width, 0))
-                PaneView(pane: model.right, model: model)
+                HalfView(pane: model.right, model: model)
                     .frame(width: max(size.width - fold.frame.maxX, 0))
+                    .clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous))
+                    .rotation3DEffect(.degrees(tilt), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
                     .scaleEffect(scale, anchor: .leading)
                     .offset(x: -shift)
             }
         } else {
             VStack(spacing: 0) {
-                PaneView(pane: model.left, model: model)
+                HalfView(pane: model.left, model: model)
                     .frame(height: max(fold.frame.minY, 0))
+                    .clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous))
+                    .rotation3DEffect(.degrees(tilt), axis: (x: 1, y: 0, z: 0), anchor: .bottom, perspective: 0.5)
                     .scaleEffect(scale, anchor: .bottom)
                     .offset(y: shift)
                 Color.clear.frame(height: max(fold.frame.height, 0))
-                PaneView(pane: model.right, model: model)
+                HalfView(pane: model.right, model: model)
                     .frame(height: max(size.height - fold.frame.maxY, 0))
+                    .clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous))
+                    .rotation3DEffect(.degrees(-tilt), axis: (x: 1, y: 0, z: 0), anchor: .top, perspective: 0.5)
                     .scaleEffect(scale, anchor: .top)
                     .offset(y: -shift)
             }
@@ -63,69 +75,57 @@ struct StageView: View {
     }
 }
 
-// MARK: - PaneView
+// MARK: - HalfView
 
-struct PaneView: View {
+/// One half of the phone: the surface, full bleed, plus a small app pill at the bottom
+/// (like an app's name in the switcher) that opens the picker.
+struct HalfView: View {
     let pane: Pane
     @Bindable var model: AppModel
+    @State private var showPicker = false
 
     var body: some View {
         let surface = pane.model
-        VStack(spacing: 0) {
-            header(surface: surface)
+        ZStack(alignment: .bottom) {
             SurfaceRegistry.view(for: surface)
                 .id(pane.kind)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusPane - 6, style: .continuous))
-                .padding(.horizontal, 6)
-                .padding(.bottom, 6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            appPill(surface: surface)
+                .padding(.bottom, 10)
         }
-        .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusPane, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.radiusPane, style: .continuous)
-                .stroke(surface.hasContent ? pane.kind.tint.opacity(0.35) : Theme.line, lineWidth: 1)
-        )
-        .padding(.horizontal, 8)
-        .padding(.top, 44)
-        .padding(.bottom, 8)
-        .animation(Theme.snappy, value: surface.hasContent)
+        .background(Theme.ink)
+        .clipped()
+        .sheet(isPresented: $showPicker) {
+            SurfacePicker(pane: pane) { kind in
+                Haptics.selection()
+                withAnimation(Theme.snappy) { pane.kind = kind }
+                showPicker = false
+            }
+        }
     }
 
-    private func header(surface: any SurfaceModel) -> some View {
-        HStack(spacing: 8) {
-            Menu {
-                ForEach(SurfaceRegistry.dockOrder) { kind in
-                    Button {
-                        Haptics.selection()
-                        withAnimation(Theme.snappy) { pane.kind = kind }
-                    } label: {
-                        Label(kind.title, systemImage: kind.symbol)
-                    }
-                }
+    private func appPill(surface: any SurfaceModel) -> some View {
+        HStack(spacing: 6) {
+            Button {
+                showPicker = true
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: pane.kind.symbol)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(pane.kind.tint)
-                    Text(pane.kind.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(Theme.textTertiary)
+                    AppGlyph(kind: pane.kind, size: 18)
+                    Text(surface.hasContent ? surface.headline : pane.kind.title)
+                        .font(.caption.weight(.medium))
+                        .lineLimit(1)
+                        .frame(maxWidth: 150)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.white.opacity(0.06), in: Capsule())
+                .padding(.leading, 6)
+                .padding(.trailing, 10)
+                .padding(.vertical, 5)
             }
-            .menuStyle(.button)
-            .buttonStyle(.plain)
-
-            Text(surface.hasContent ? surface.headline : pane.side.title.lowercased() + " screen")
-                .font(.fuseCaption)
-                .foregroundStyle(surface.hasContent ? Theme.textSecondary : Theme.textTertiary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            .buttonStyle(.glass)
+            .buttonBorderShape(.capsule)
 
             if surface.hasContent {
                 Button {
@@ -134,14 +134,77 @@ struct PaneView: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 22, height: 22)
-                        .background(.white.opacity(0.06), in: Circle())
+                        .frame(width: 26, height: 26)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .accessibilityLabel("Clear this screen")
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .animation(Theme.snappy, value: surface.hasContent)
+    }
+}
+
+// MARK: - App glyph (looks like a home-screen icon)
+
+struct AppGlyph: View {
+    var kind: SurfaceKind
+    var size: CGFloat = 44
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+            .fill(kind.tint.gradient)
+            .frame(width: size, height: size)
+            .overlay(
+                Image(systemName: kind.symbol)
+                    .font(.system(size: size * 0.5, weight: .medium))
+                    .foregroundStyle(.white)
+            )
+    }
+}
+
+// MARK: - SurfacePicker (a small home screen for one half)
+
+struct SurfacePicker: View {
+    let pane: Pane
+    var onPick: (SurfaceKind) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    private let columns = [GridItem(.adaptive(minimum: 76), spacing: 16)]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 20) {
+                    ForEach(SurfaceRegistry.dockOrder) { kind in
+                        Button {
+                            onPick(kind)
+                        } label: {
+                            VStack(spacing: 6) {
+                                AppGlyph(kind: kind, size: 58)
+                                Text(kind.title)
+                                    .font(.caption)
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .overlay(alignment: .topTrailing) {
+                            if kind == pane.kind {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.white, Color.accentColor)
+                                    .offset(x: 6, y: -6)
+                            }
+                        }
+                    }
+                }
+                .padding(24)
+            }
+            .navigationTitle("\(pane.side.title) screen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+            }
+        }
+        .presentationDetents([.height(300), .medium])
     }
 }

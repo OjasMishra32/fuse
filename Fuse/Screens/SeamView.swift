@@ -2,12 +2,12 @@ import SwiftUI
 
 // MARK: - SeamView
 //
-// The hinge, made visible. A hairline of energy along the fold that brightens as both
-// screens fill up, and a core at its center that is the app's only "button":
+// The hinge, made just visible enough. A hairline along the fold and, at its center, the
+// only control in the app:
 //   • hold the core → fuse without folding
 //   • hold the mic  → say what you want, let go to fuse
 //   • pinch along the seam → squeeze the halves together
-// The instruction (spoken or typed) rides on the seam as a small capsule.
+// Below it, what the model thinks the fold should do right now, as plain chips.
 
 struct SeamView: View {
     @Bindable var model: AppModel
@@ -36,34 +36,14 @@ struct SeamView: View {
     // MARK: Hairline
 
     private var hairline: some View {
-        let intensity = 0.25 + 0.75 * max(ready, model.foldProgress)
+        let color = model.readiness == 2 ? Color.accentColor.opacity(0.55) : Theme.line
         return Group {
             if fold.isVertical {
-                Rectangle()
-                    .fill(Theme.energyVertical)
-                    .frame(width: 2, height: size.height * 0.7)
-                    .blur(radius: 0.4)
-                    .overlay(
-                        Rectangle()
-                            .fill(Theme.energyVertical)
-                            .frame(width: 10)
-                            .blur(radius: 14)
-                            .opacity(0.5 + 0.5 * model.foldProgress)
-                    )
+                Rectangle().fill(color).frame(width: 1, height: size.height)
             } else {
-                Rectangle()
-                    .fill(Theme.energy)
-                    .frame(width: size.width * 0.7, height: 2)
-                    .overlay(
-                        Rectangle()
-                            .fill(Theme.energy)
-                            .frame(height: 10)
-                            .blur(radius: 14)
-                            .opacity(0.5 + 0.5 * model.foldProgress)
-                    )
+                Rectangle().fill(color).frame(width: size.width, height: 1)
             }
         }
-        .opacity(intensity)
         .position(center)
         .animation(Theme.smooth, value: model.readiness)
     }
@@ -71,9 +51,8 @@ struct SeamView: View {
     // MARK: Core
 
     private var core: some View {
-        let stack = fold.isVertical
-        return Group {
-            if stack {
+        Group {
+            if fold.isVertical {
                 VStack(spacing: 10) { coreOrb; micButton; instructionCapsule; suggestionStrip(vertical: true) }
             } else {
                 HStack(spacing: 10) { suggestionStrip(vertical: false); instructionCapsule; micButton; coreOrb }
@@ -83,77 +62,17 @@ struct SeamView: View {
         .gesture(seamPinch)
     }
 
-    // MARK: Suggestions — what the model thinks the fold should do right now
-
-    @ViewBuilder
-    private func suggestionStrip(vertical: Bool) -> some View {
-        if model.phase == .compose {
-            let chips = Group {
-                if model.isPreviewing && model.suggestions.isEmpty {
-                    HStack(spacing: 6) {
-                        Circle().fill(Theme.cyan).frame(width: 5, height: 5)
-                            .opacity(pulse ? 1 : 0.3)
-                            .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
-                        Text("Reading both screens")
-                            .font(.fuseCaption)
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .glassEffect(.regular, in: .capsule)
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
-                }
-                ForEach(Array(model.suggestions.enumerated()), id: \.element.id) { index, s in
-                    let selected = (model.chosenSuggestion ?? model.suggestions.first)?.id == s.id && model.instruction.isEmpty || model.chosenSuggestion?.id == s.id
-                    Button { model.choose(s) } label: {
-                        HStack(spacing: 6) {
-                            if selected {
-                                Text("Fold →")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(Theme.cyan)
-                            }
-                            Image(systemName: s.resolvedSymbol)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
-                            Text(s.title)
-                                .font(.system(size: 12, weight: selected ? .semibold : .medium))
-                                .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
-                                .lineLimit(1)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .glassEffect(selected ? .regular.tint(Theme.violet.opacity(0.45)).interactive() : .regular.interactive(), in: .capsule)
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.scale(scale: 0.85).combined(with: .opacity))
-                    .animation(Theme.snappy.delay(Double(index) * 0.06), value: model.suggestions)
-                }
-            }
-            if vertical {
-                VStack(spacing: 6) { chips }.frame(maxWidth: 210)
-            } else {
-                HStack(spacing: 6) { chips }
-            }
-        }
-    }
-
     private var coreOrb: some View {
         ZStack {
             Circle()
-                .fill(Theme.energyAngular)
-                .frame(width: 58, height: 58)
-                .blur(radius: 16)
-                .opacity((0.25 + 0.55 * ready) * (pulse ? 1 : 0.6))
-                .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: pulse)
-            Circle()
                 .fill(.clear)
-                .frame(width: 44, height: 44)
+                .frame(width: 48, height: 48)
                 .glassEffect(.regular.interactive(), in: .circle)
             FuseMark(progress: pressingCore ? 1 : ready)
                 .frame(width: 22, height: 22)
-                .foregroundStyle(Theme.textPrimary)
+                .foregroundStyle(model.readiness == 2 ? Color.accentColor : Color.primary)
         }
-        .scaleEffect(pressingCore ? 0.9 : 1)
+        .scaleEffect(pressingCore ? 0.92 : 1)
         .animation(Theme.snappy, value: pressingCore)
         .onLongPressGesture(minimumDuration: 0.55, maximumDistance: 30) {
             pressingCore = false
@@ -177,11 +96,11 @@ struct SeamView: View {
                 .frame(width: 34, height: 34)
                 .glassEffect(.regular.interactive(), in: .circle)
             Image(systemName: listening ? "waveform" : "mic.fill")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(listening ? Theme.cyan : Theme.textPrimary)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(listening ? Color.accentColor : Color.primary)
                 .symbolEffect(.variableColor.iterative, isActive: listening)
         }
-        .scaleEffect(listening ? 1.15 : 1)
+        .scaleEffect(listening ? 1.12 : 1)
         .animation(Theme.snappy, value: listening)
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -206,44 +125,87 @@ struct SeamView: View {
         let text = listening ? (SpeechService.shared.transcript.isEmpty ? "Listening…" : SpeechService.shared.transcript) : model.instruction
         if !text.isEmpty {
             HStack(spacing: 6) {
-                Image(systemName: listening ? "waveform" : "quote.opening")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Theme.cyan)
+                Image(systemName: listening ? "waveform" : "text.quote")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
                 Text(text)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(.footnote)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                 if !listening {
                     Button {
                         Haptics.tap()
-                        withAnimation(Theme.snappy) { model.instruction = "" }
+                        withAnimation(Theme.snappy) { model.instruction = ""; model.chosenSuggestion = nil }
                     } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(Theme.textTertiary)
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.tertiary)
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .glassEffect(.regular, in: .capsule)
-            .frame(maxWidth: 200)
-            .transition(.scale(scale: 0.8).combined(with: .opacity))
+            .padding(.vertical, 7)
+            .background(Color(uiColor: .secondarySystemFill), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .frame(maxWidth: 220)
+            .transition(.scale(scale: 0.9).combined(with: .opacity))
             .onTapGesture { if !listening { model.showInstructionEditor = true } }
         } else {
             Button {
                 model.showInstructionEditor = true
             } label: {
                 Image(systemName: "keyboard")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.textTertiary)
+                    .font(.caption.weight(.medium))
                     .frame(width: 28, height: 28)
-                    .glassEffect(.regular.interactive(), in: .circle)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
             .accessibilityLabel("Type an instruction")
+        }
+    }
+
+    // MARK: Suggestions
+
+    @ViewBuilder
+    private func suggestionStrip(vertical: Bool) -> some View {
+        if model.phase == .compose {
+            let chips = Group {
+                if model.isPreviewing && model.suggestions.isEmpty {
+                    HStack(spacing: 6) {
+                        Circle().fill(Color.accentColor).frame(width: 5, height: 5)
+                            .opacity(pulse ? 1 : 0.3)
+                            .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
+                        Text("Reading both screens")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .transition(.opacity)
+                }
+                ForEach(Array(model.suggestions.enumerated()), id: \.element.id) { index, s in
+                    let isDefault = model.defaultSuggestion?.id == s.id
+                    Button {
+                        model.choose(s)
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: s.resolvedSymbol)
+                            Text(isDefault ? "Fold: \(s.title)" : s.title)
+                                .lineLimit(1)
+                        }
+                        .font(.footnote.weight(isDefault ? .semibold : .regular))
+                    }
+                    .buttonStyle(isDefault ? AnyPrimitiveButtonStyle(.borderedProminent) : AnyPrimitiveButtonStyle(.bordered))
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    .animation(Theme.snappy.delay(Double(index) * 0.05), value: model.suggestions)
+                }
+            }
+            if vertical {
+                VStack(spacing: 6) { chips }.frame(maxWidth: 220)
+            } else {
+                HStack(spacing: 6) { chips }
+            }
         }
     }
 
@@ -291,9 +253,20 @@ struct SeamView: View {
     }
 }
 
+/// Type-erased primitive button style so a chip can switch between bordered and prominent.
+struct AnyPrimitiveButtonStyle: PrimitiveButtonStyle {
+    private let make: (Configuration) -> AnyView
+    init<S: PrimitiveButtonStyle>(_ style: S) {
+        make = { AnyView(style.makeBody(configuration: $0)) }
+    }
+    func makeBody(configuration: Configuration) -> some View {
+        make(configuration)
+    }
+}
+
 // MARK: - The mark
 
-/// Two discs that overlap more as `progress` → 1. Doubles as the wordmark glyph.
+/// Two rings that overlap more as `progress` → 1.
 struct FuseMark: View {
     var progress: Double = 0.5
 
@@ -302,10 +275,10 @@ struct FuseMark: View {
             let d = geo.size.width * 0.62
             let gap = geo.size.width * (0.38 - 0.2 * progress)
             ZStack {
-                Circle().stroke(lineWidth: geo.size.width * 0.09)
+                Circle().stroke(lineWidth: geo.size.width * 0.085)
                     .frame(width: d, height: d)
                     .offset(x: -gap / 2)
-                Circle().stroke(lineWidth: geo.size.width * 0.09)
+                Circle().stroke(lineWidth: geo.size.width * 0.085)
                     .frame(width: d, height: d)
                     .offset(x: gap / 2)
             }

@@ -308,6 +308,33 @@ final class AppModel {
         flash(scenario.title)
     }
 
+    // MARK: Share sheet inbox ("Send to Fuse" from any app)
+
+    /// Pull anything the share extension parked and put it on the chosen half.
+    func importSharedItems() {
+        let items = SharedInbox.drain()
+        guard !items.isEmpty else { return }
+        for item in items {
+            let pane = item.side == .left ? left : right
+            switch item.kind {
+            case .url:
+                if let s = item.url, let url = URL(string: s) { pane.apply(.url(url), as: .web) }
+            case .text:
+                pane.apply(.text(item.text ?? ""), as: .notes)
+            case .image:
+                if let url = SharedInbox.fileURL(for: item), let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
+                    pane.apply(.image(image), as: .photo)
+                }
+            case .file:
+                if let url = SharedInbox.fileURL(for: item) { pane.apply(.document(url), as: .document) }
+            }
+        }
+        if phase != .compose { dismissResult() }
+        Haptics.medium()
+        let last = items[items.count - 1]
+        flash("\(last.title) → \(last.side == .left ? "left" : "right") screen")
+    }
+
     // MARK: Commands from intents / Back Tap / Shortcuts
 
     func handle(_ command: AppCommand) {

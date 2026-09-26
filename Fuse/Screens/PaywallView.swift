@@ -40,7 +40,7 @@ struct PaywallView: View {
             .padding(.horizontal, 16)
             .padding(.top, 12)
         }
-        .preferredColorScheme(.dark)
+        
         .onAppear { ensureSelection() }
         .onChange(of: store.packages.count) { _, _ in ensureSelection() }
     }

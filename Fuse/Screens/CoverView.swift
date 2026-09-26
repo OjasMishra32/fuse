@@ -36,20 +36,17 @@ struct CoverView: View {
     }
 
     private var idle: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             Spacer()
             FuseMark(progress: Double(model.readiness) / 2)
-                .frame(width: 54, height: 54)
-                .foregroundStyle(Theme.textPrimary)
-            Text("Fuse")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.textPrimary)
+                .frame(width: 44, height: 44)
+                .foregroundStyle(.primary)
             Text(model.readiness == 0
                  ? "Open the phone. Put something on each screen. Close it."
-                 : model.readiness == 1 ? "One screen is ready. Open to add the other, or fold to fuse it alone."
+                 : model.readiness == 1 ? "One screen is ready. Open to add the other, or fuse it alone."
                  : "Both screens are ready. Fold to fuse.")
-                .font(.fuseBody)
-                .foregroundStyle(Theme.textSecondary)
+                .font(.body)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 280)
             HStack(spacing: 10) {
@@ -70,17 +67,16 @@ struct CoverView: View {
     private func screenDot(_ pane: Pane) -> some View {
         let surface = pane.model
         return HStack(spacing: 6) {
-            Image(systemName: pane.kind.symbol)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(surface.hasContent ? pane.kind.tint : Theme.textTertiary)
+            AppGlyph(kind: pane.kind, size: 16)
+                .opacity(surface.hasContent ? 1 : 0.4)
             Text(surface.hasContent ? surface.headline : "Empty")
-                .font(.fuseCaption)
-                .foregroundStyle(surface.hasContent ? Theme.textPrimary : Theme.textTertiary)
+                .font(.footnote)
+                .foregroundStyle(surface.hasContent ? .primary : .tertiary)
                 .lineLimit(1)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(.white.opacity(0.06), in: Capsule())
+        .background(Color(uiColor: .secondarySystemFill), in: Capsule())
         .frame(maxWidth: 150)
     }
 }
@@ -97,7 +93,7 @@ struct FailureCard: View {
         VStack(spacing: 14) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 26, weight: .medium))
-                .foregroundStyle(Theme.magenta)
+                .foregroundStyle(.secondary)
             Text("That fuse didn't take")
                 .font(.fuseHeadline)
                 .foregroundStyle(Theme.textPrimary)
@@ -114,8 +110,7 @@ struct FailureCard: View {
         }
         .padding(24)
         .frame(maxWidth: 420)
-        .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusPane, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusPane, style: .continuous).stroke(Theme.line, lineWidth: 1))
+        .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
         .padding(20)
     }
 }

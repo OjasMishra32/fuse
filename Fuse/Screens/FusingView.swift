@@ -2,8 +2,8 @@ import SwiftUI
 
 // MARK: - FusingView
 //
-// Shown while the model is working: the merged orb breathing at the seam, the stage of the
-// fuse, both inputs, elapsed time. Renders on the inner display (overlay) and on the cover.
+// Shown while the model is working: a quiet ring, the stage, both inputs, elapsed time.
+// Renders on the inner display (overlay) and on the cover.
 
 struct FusingView: View {
     @Bindable var model: AppModel
@@ -13,30 +13,30 @@ struct FusingView: View {
         TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             ZStack {
-                Theme.ink.opacity(compact ? 1 : 0.92).ignoresSafeArea()
+                Theme.ink.opacity(compact ? 1 : 0.94).ignoresSafeArea()
 
                 VStack(spacing: compact ? 22 : 26) {
-                    orb(t: t)
-                        .frame(width: compact ? 150 : 170, height: compact ? 150 : 170)
+                    ring(t: t)
+                        .frame(width: 96, height: 96)
 
                     VStack(spacing: 8) {
                         Text(model.fusingStage)
-                            .font(.system(size: compact ? 17 : 19, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
                             .contentTransition(.opacity)
                             .id(model.fusingStage)
                             .transition(.blurReplace)
                         HStack(spacing: 8) {
-                            inputChip(model.left)
-                            Text("+")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(Theme.textTertiary)
-                            inputChip(model.right)
+                            inputLabel(model.left)
+                            Image(systemName: "plus")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.tertiary)
+                            inputLabel(model.right)
                         }
                         if !model.instruction.isEmpty {
                             Text("“\(model.instruction)”")
-                                .font(.fuseCaption)
-                                .foregroundStyle(Theme.textSecondary)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
                                 .lineLimit(2)
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: 320)
@@ -45,13 +45,13 @@ struct FusingView: View {
                     .animation(Theme.snappy, value: model.fusingStage)
 
                     HStack(spacing: 14) {
-                        Text(elapsed(t: t))
-                            .font(.system(size: 12, weight: .medium, design: .rounded).monospacedDigit())
-                            .foregroundStyle(Theme.textTertiary)
+                        Text(elapsed())
+                            .font(.footnote.monospacedDigit())
+                            .foregroundStyle(.tertiary)
                         Button("Cancel") { model.cancelFuse() }
-                            .font(.fuseCaption)
-                            .foregroundStyle(Theme.textSecondary)
+                            .font(.footnote)
                             .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding(24)
@@ -59,57 +59,34 @@ struct FusingView: View {
         }
     }
 
-    private func elapsed(t: TimeInterval) -> String {
+    private func elapsed() -> String {
         guard let start = model.fusingStartedAt else { return "" }
-        let s = max(0, Date().timeIntervalSince(start))
-        return String(format: "%.1fs", s)
+        return String(format: "%.1fs", max(0, Date().timeIntervalSince(start)))
     }
 
-    private func orb(t: TimeInterval) -> some View {
-        let breathe = 1 + 0.06 * sin(t * 2.2)
-        return ZStack {
+    private func ring(t: TimeInterval) -> some View {
+        ZStack {
             Circle()
-                .fill(Theme.energyAngular)
-                .blur(radius: 34)
-                .opacity(0.55)
-                .scaleEffect(1.25 * breathe)
+                .stroke(Color(uiColor: .systemFill), lineWidth: 5)
             Circle()
-                .fill(Theme.energyAngular)
-                .rotationEffect(.radians(t * 1.1))
-                .mask(
-                    Circle().strokeBorder(lineWidth: 18)
-                )
-                .blur(radius: 1)
-            Circle()
-                .fill(Theme.energyAngular)
-                .rotationEffect(.radians(-t * 0.7))
-                .mask(Circle().strokeBorder(lineWidth: 6).padding(24))
-                .opacity(0.9)
-            Circle()
-                .fill(.clear)
-                .glassEffect(.regular, in: .circle)
-                .padding(36)
+                .trim(from: 0.12, to: 0.88)
+                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                .rotationEffect(.radians(t * 2.4))
             FuseMark(progress: 1)
-                .frame(width: 40, height: 40)
-                .foregroundStyle(.white)
-                .scaleEffect(breathe)
+                .frame(width: 30, height: 30)
+                .foregroundStyle(.primary)
         }
     }
 
-    private func inputChip(_ pane: Pane) -> some View {
+    private func inputLabel(_ pane: Pane) -> some View {
         let surface = pane.model
         return HStack(spacing: 5) {
-            Image(systemName: pane.kind.symbol)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(pane.kind.tint)
+            AppGlyph(kind: pane.kind, size: 16)
             Text(surface.hasContent ? surface.headline : pane.kind.title)
-                .font(.fuseCaption)
-                .foregroundStyle(Theme.textSecondary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(.white.opacity(0.06), in: Capsule())
-        .frame(maxWidth: 150)
+        .frame(maxWidth: 160)
     }
 }

@@ -2,10 +2,13 @@ import SwiftUI
 
 // MARK: - MeltOverlay
 //
-// The moment. As fold progress rises, each screen collapses into a blob that travels to the
-// hinge; the two blobs are drawn through a blur + alpha-threshold filter so they behave like
-// liquid and merge into one. The energy gradient is masked by that liquid, live previews of
-// both screens ride inside the blobs until they dissolve, and sparks orbit the merge point.
+// The moment. As the phone closes:
+//   1. a soft multi-hue glow traces the edges of both halves (the same language as the
+//      system's intelligence glow), brightening as the fold deepens;
+//   2. each screen collapses into a glass drop that travels to the hinge; the drops are drawn
+//      through a blur + alpha-threshold filter so they behave like liquid and merge into one;
+//   3. at the end a single pulse of light runs along the seam.
+// Live previews of both screens ride inside the drops until they dissolve.
 
 struct MeltOverlay: View {
     @Bindable var model: AppModel
@@ -17,13 +20,49 @@ struct MeltOverlay: View {
     var body: some View {
         let ease = p * p * (3 - 2 * p)
         if p > 0.01 {
-            ZStack {
-                liquid(ease: ease)
-                previews(ease: ease)
-                if p > 0.55 { sparks(ease: ease) }
+            TimelineView(.animation(minimumInterval: 1 / 60)) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                ZStack {
+                    edgeGlow(ease: ease, t: t)
+                    liquid(ease: ease, t: t)
+                    previews(ease: ease)
+                    seamPulse(ease: ease, t: t)
+                }
             }
             .transition(.opacity)
         }
+    }
+
+    // MARK: Palette (only ever used here)
+
+    private func glow(angle: Double) -> AngularGradient {
+        AngularGradient(
+            colors: [Color(red: 0.25, green: 0.55, blue: 1.0), Color(red: 0.35, green: 0.85, blue: 0.95),
+                     Color(red: 1.0, green: 0.55, blue: 0.75), Color(red: 1.0, green: 0.75, blue: 0.45),
+                     Color(red: 0.25, green: 0.55, blue: 1.0)],
+            center: .center,
+            angle: .degrees(angle)
+        )
+    }
+
+    // MARK: Edge glow
+
+    private func edgeGlow(ease: Double, t: TimeInterval) -> some View {
+        let strength = min(1, ease * 1.6)
+        let shape = RoundedRectangle(cornerRadius: 44, style: .continuous)
+        return ZStack {
+            shape
+                .strokeBorder(glow(angle: t * 40), lineWidth: 18 + 30 * ease)
+                .blur(radius: 22 + 14 * ease)
+                .opacity(0.85 * strength)
+            shape
+                .strokeBorder(glow(angle: t * 40 + 90), lineWidth: 2.5)
+                .blur(radius: 0.6)
+                .opacity(0.9 * strength)
+        }
+        .padding(-6)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 
     // MARK: Geometry
@@ -32,30 +71,29 @@ struct MeltOverlay: View {
 
     private var leftCenter: CGPoint {
         fold.isVertical
-            ? CGPoint(x: fold.frame.minX / 2, y: size.height / 2 + 18)
-            : CGPoint(x: size.width / 2, y: fold.frame.minY / 2 + 18)
+            ? CGPoint(x: fold.frame.minX / 2, y: size.height / 2)
+            : CGPoint(x: size.width / 2, y: fold.frame.minY / 2)
     }
 
     private var rightCenter: CGPoint {
         fold.isVertical
-            ? CGPoint(x: fold.frame.maxX + (size.width - fold.frame.maxX) / 2, y: size.height / 2 + 18)
-            : CGPoint(x: size.width / 2, y: fold.frame.maxY + (size.height - fold.frame.maxY) / 2 + 18)
+            ? CGPoint(x: fold.frame.maxX + (size.width - fold.frame.maxX) / 2, y: size.height / 2)
+            : CGPoint(x: size.width / 2, y: fold.frame.maxY + (size.height - fold.frame.maxY) / 2)
     }
 
     private func blobCenter(from origin: CGPoint, ease: Double) -> CGPoint {
-        // Travel most of the way early, arrive late — feels like being pulled in.
         let travel = min(1, ease * 1.15)
         return CGPoint(x: origin.x + (seam.x - origin.x) * travel, y: origin.y + (seam.y - origin.y) * travel)
     }
 
     private func blobRadius(ease: Double) -> CGFloat {
         let base = min(size.width, size.height) * 0.16
-        return base * (1.0 + 0.35 * ease)
+        return base * (1.0 + 0.3 * ease)
     }
 
     // MARK: Liquid
 
-    private func liquid(ease: Double) -> some View {
+    private func liquid(ease: Double, t: TimeInterval) -> some View {
         let r = blobRadius(ease: ease)
         let a = blobCenter(from: leftCenter, ease: ease)
         let b = blobCenter(from: rightCenter, ease: ease)
@@ -65,7 +103,6 @@ struct MeltOverlay: View {
             context.drawLayer { layer in
                 layer.fill(Path(ellipseIn: CGRect(x: a.x - r, y: a.y - r, width: 2 * r, height: 2 * r)), with: .color(.white))
                 layer.fill(Path(ellipseIn: CGRect(x: b.x - r, y: b.y - r, width: 2 * r, height: 2 * r)), with: .color(.white))
-                // A small bridge that appears late helps the merge read as one body.
                 if ease > 0.7 {
                     let br = r * 0.55 * (ease - 0.7) / 0.3
                     layer.fill(Path(ellipseIn: CGRect(x: seam.x - br, y: seam.y - br, width: 2 * br, height: 2 * br)), with: .color(.white))
@@ -73,24 +110,27 @@ struct MeltOverlay: View {
             }
         }
         return ZStack {
-            Theme.energyAngular
+            // Glass body
+            Color(uiColor: .systemGray5)
                 .mask(mask)
-                .blur(radius: 26)
-                .opacity(0.65)
-            Theme.energy
+            // A whisper of the glow inside the glass, stronger as the drops merge.
+            glow(angle: -t * 30)
+                .opacity(0.22 + 0.33 * ease)
                 .mask(mask)
-            Color.white
+            // Highlight along the top edge.
+            LinearGradient(colors: [.white.opacity(0.6), .clear], startPoint: .top, endPoint: .center)
                 .mask(mask)
-                .opacity(0.10 + 0.25 * ease)
-                .blendMode(.plusLighter)
+                .opacity(0.8)
         }
+        .compositingGroup()
+        .shadow(color: .black.opacity(0.16), radius: 20, y: 10)
         .ignoresSafeArea()
     }
 
-    // MARK: Previews inside the blobs
+    // MARK: Previews inside the drops
 
     private func previews(ease: Double) -> some View {
-        let r = blobRadius(ease: ease) * 0.86
+        let r = blobRadius(ease: ease) * 0.84
         let fade = max(0, 1 - ease * 1.6)
         return ZStack {
             preview(model.left, r: r, at: blobCenter(from: leftCenter, ease: ease), fade: fade)
@@ -108,43 +148,37 @@ struct MeltOverlay: View {
                     .scaledToFill()
             } else {
                 ZStack {
-                    pane.kind.tint.opacity(0.25)
-                    Image(systemName: pane.kind.symbol)
-                        .font(.system(size: r * 0.7, weight: .medium))
-                        .foregroundStyle(pane.kind.tint)
+                    Color(uiColor: .secondarySystemBackground)
+                    AppGlyph(kind: pane.kind, size: r * 0.9)
                 }
             }
         }
         .frame(width: 2 * r, height: 2 * r)
         .clipShape(Circle())
-        .overlay(Circle().stroke(.white.opacity(0.35), lineWidth: 1))
+        .overlay(Circle().stroke(.white.opacity(0.6), lineWidth: 1))
         .opacity(fade)
         .position(point)
     }
 
-    // MARK: Sparks
+    // MARK: Seam pulse
 
-    private func sparks(ease: Double) -> some View {
-        TimelineView(.animation) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            Canvas { context, _ in
-                let count = 42
-                let strength = (ease - 0.55) / 0.45
-                for i in 0..<count {
-                    let seed = Double(i) * 0.61803398875
-                    let angle = (seed * 2 * .pi + t * (0.6 + seed.truncatingRemainder(dividingBy: 0.5)))
-                    let orbit = blobRadius(ease: ease) * (1.1 + 0.9 * (seed.truncatingRemainder(dividingBy: 0.37) / 0.37)) * (1.2 - 0.4 * strength)
-                    let x = seam.x + cos(angle) * orbit
-                    let y = seam.y + sin(angle) * orbit * (fold.isVertical ? 1.0 : 0.6)
-                    let s = 1.2 + 2.4 * (seed.truncatingRemainder(dividingBy: 0.23) / 0.23)
-                    let alpha = 0.25 + 0.75 * abs(sin(t * 3 + seed * 10))
-                    let color = i % 3 == 0 ? Theme.cyan : (i % 3 == 1 ? Theme.violet : Color.white)
-                    context.fill(Path(ellipseIn: CGRect(x: x - s / 2, y: y - s / 2, width: s, height: s)),
-                                 with: .color(color.opacity(alpha * strength)))
+    @ViewBuilder
+    private func seamPulse(ease: Double, t: TimeInterval) -> some View {
+        if ease > 0.85 {
+            let k = (ease - 0.85) / 0.15
+            let length = (fold.isVertical ? size.height : size.width) * (0.2 + 0.8 * k)
+            Group {
+                if fold.isVertical {
+                    Capsule().fill(.white).frame(width: 3, height: length)
+                        .overlay(Capsule().fill(glow(angle: t * 60)).frame(width: 14, height: length).blur(radius: 12))
+                } else {
+                    Capsule().fill(.white).frame(width: length, height: 3)
+                        .overlay(Capsule().fill(glow(angle: t * 60)).frame(width: length, height: 14).blur(radius: 12))
                 }
             }
+            .opacity(0.9 * k)
+            .position(seam)
+            .allowsHitTesting(false)
         }
-        .blendMode(.plusLighter)
-        .ignoresSafeArea()
     }
 }

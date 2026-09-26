@@ -44,13 +44,13 @@ enum SurfaceKind: String, CaseIterable, Codable, Identifiable, Hashable {
 
     var tint: Color {
         switch self {
-        case .web: Color(red: 0.36, green: 0.62, blue: 1.0)
-        case .maps: Color(red: 0.30, green: 0.85, blue: 0.62)
-        case .notes: Color(red: 1.0, green: 0.80, blue: 0.36)
-        case .photo: Color(red: 1.0, green: 0.45, blue: 0.62)
-        case .document: Color(red: 0.72, green: 0.58, blue: 1.0)
-        case .calendar: Color(red: 1.0, green: 0.40, blue: 0.40)
-        case .clipboard: Color(red: 0.60, green: 0.85, blue: 1.0)
+        case .web: Color(uiColor: .systemBlue)
+        case .maps: Color(uiColor: .systemGreen)
+        case .notes: Color(uiColor: .systemYellow)
+        case .photo: Color(uiColor: .systemPink)
+        case .document: Color(uiColor: .systemGray)
+        case .calendar: Color(uiColor: .systemRed)
+        case .clipboard: Color(uiColor: .systemTeal)
         }
     }
 }

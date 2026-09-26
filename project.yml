@@ -28,6 +28,18 @@ settings:
     SWIFT_EMIT_LOC_STRINGS: "YES"
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
+schemes:
+  Fuse:
+    build:
+      targets:
+        Fuse: all
+        FuseTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - FuseTests
 targets:
   Fuse:
     type: application
@@ -36,7 +48,14 @@ targets:
       - path: Fuse
         excludes:
           - "**/.DS_Store"
+      - path: Shared
+    entitlements:
+      path: Fuse/Fuse.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.ojasvamishra.fuse
     dependencies:
+      - target: FuseShare
       - package: RevenueCat
         product: RevenueCat
       - package: RevenueCat
@@ -51,6 +70,10 @@ targets:
       properties:
         CFBundleDisplayName: Fuse
         CFBundleName: Fuse
+        CFBundleURLTypes:
+          - CFBundleURLName: com.ojasvamishra.fuse
+            CFBundleURLSchemes:
+              - fuse
         UILaunchScreen: {}
         UIRequiresFullScreen: false
         UISupportedInterfaceOrientations:
@@ -63,7 +86,6 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
           - UIInterfaceOrientationPortraitUpsideDown
-        UIUserInterfaceStyle: Dark
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Fuse uses the camera so you can fuse what you see with what's on the other screen.
         NSPhotoLibraryUsageDescription: Fuse reads photos you pick so it can fuse them with the other screen.
@@ -88,3 +110,46 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: "YES"
         SWIFT_OBJC_BRIDGING_HEADER: ""
+
+  FuseTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: FuseTests
+    dependencies:
+      - target: Fuse
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ojasvamishra.fuse.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+
+  FuseShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: FuseShare
+      - path: Shared
+    entitlements:
+      path: FuseShare/FuseShare.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.ojasvamishra.fuse
+    info:
+      path: FuseShare/Info.plist
+      properties:
+        CFBundleDisplayName: Fuse
+        CFBundleName: Fuse
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsImageWithMaxCount: 1
+              NSExtensionActivationSupportsFileWithMaxCount: 1
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ojasvamishra.fuse.share
+        SKIP_INSTALL: "YES"
+        GENERATE_INFOPLIST_FILE: "NO"

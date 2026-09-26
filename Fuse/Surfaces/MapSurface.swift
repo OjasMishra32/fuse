@@ -116,11 +116,17 @@ final class MapSurfaceModel: SurfaceModel {
         span: MKCoordinateSpan(latitudeDelta: 0.2, longitudeDelta: 0.2)
     )
 
-    static let quickSearches: [(title: String, symbol: String)] = [
-        ("Universal Studios", "sparkles"),
-        ("Coffee", "cup.and.saucer.fill"),
-        ("Hotels", "bed.double.fill"),
-        ("Dinner", "fork.knife")
+    struct QuickSearch: Identifiable {
+        let title: String
+        let symbol: String
+        var id: String { title }
+    }
+
+    static let quickSearches: [QuickSearch] = [
+        QuickSearch(title: "Universal Studios", symbol: "sparkles"),
+        QuickSearch(title: "Coffee", symbol: "cup.and.saucer.fill"),
+        QuickSearch(title: "Hotels", symbol: "bed.double.fill"),
+        QuickSearch(title: "Dinner", symbol: "fork.knife")
     ]
 
     var query: String = ""
@@ -574,7 +580,7 @@ struct MapSurfaceView: View {
     private var quickChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                ForEach(MapSurfaceModel.quickSearches, id: \.title) { item in
+                ForEach(MapSurfaceModel.quickSearches) { item in
                     Chip(title: item.title, symbol: item.symbol, tint: Theme.textPrimary) {
                         model.quickSearch(item.title)
                     }

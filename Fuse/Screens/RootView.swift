@@ -10,6 +10,7 @@ struct RootView: View {
     @Bindable var model: AppModel
     @State private var devFold: Double = 0
     @State private var bus = AppCommandBus.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -24,11 +25,11 @@ struct RootView: View {
 
             if let hint = model.hint {
                 Text(hint)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(.footnote)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
-                    .glassEffect(.regular, in: .capsule)
+                    .background(.regularMaterial, in: Capsule())
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, 18)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -39,7 +40,7 @@ struct RootView: View {
             }
         }
         .fuseHingeTracking(model)
-        .preferredColorScheme(.dark)
+        
         .sheet(isPresented: $model.showSettings) { SettingsView(onDismiss: { model.showSettings = false }) }
         .sheet(isPresented: $model.showHistory) {
             HistoryView(onOpen: { result in
@@ -61,10 +62,17 @@ struct RootView: View {
         .onChange(of: model.contentKey) { _, _ in
             model.schedulePreview()
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { model.importSharedItems() }
+        }
+        .onOpenURL { _ in
+            model.importSharedItems()
+        }
         .onAppear {
             RevenueCatService.shared.configure()
             Task { await SupabaseService.shared.ensureSession() }
             if let command = bus.take() { model.handle(command) }
+            model.importSharedItems()
             model.schedulePreview()
         }
     }
@@ -106,22 +114,13 @@ struct RootView: View {
 
     private var topBar: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 7) {
-                FuseMark(progress: Double(model.readiness) / 2)
-                    .frame(width: 16, height: 16)
-                Text("Fuse")
-                    .font(.fuseWordmark)
-            }
-            .foregroundStyle(Theme.textPrimary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .glassEffect(.regular, in: .capsule)
-            .onTapGesture(count: 3) {
-                Haptics.rigid()
-                withAnimation(Theme.snappy) { model.showDevPanel.toggle() }
-            }
-
             HingeBadge(hinge: model.hinge)
+                .padding(.leading, 4)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 3) {
+                    Haptics.rigid()
+                    withAnimation(Theme.snappy) { model.showDevPanel.toggle() }
+                }
 
             Spacer(minLength: 0)
 
@@ -141,14 +140,13 @@ struct RootView: View {
                             Label("Clear both screens", systemImage: "xmark.circle")
                         }
                     } label: {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
+                        Image(systemName: "wand.and.stars")
+                            .font(.system(size: 14, weight: .medium))
                             .frame(width: 34, height: 34)
-                            .glassEffect(.regular.interactive(), in: .circle)
                     }
                     .menuStyle(.button)
-                    .buttonStyle(.plain)
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.circle)
 
                     GlassIconButton(symbol: "clock.arrow.circlepath", size: 34) { model.showHistory = true }
                     GlassIconButton(symbol: "person.2", size: 34) { model.showCommunity = true }
@@ -193,11 +191,11 @@ struct RootView: View {
             }
             Text("Hinge: \(Int(model.hingeDegrees))°  ·  progress \(String(format: "%.2f", model.foldProgress))  ·  trigger \(model.lastTrigger?.rawValue ?? "—")")
                 .font(.fuseMono)
-                .foregroundStyle(Theme.textTertiary)
+                .foregroundStyle(.secondary)
         }
         .padding(14)
         .frame(width: 420)
-        .glassEffect(.regular, in: .rect(cornerRadius: Theme.radiusCard))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .padding(.bottom, 14)
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -250,7 +248,7 @@ struct InstructionEditor: View {
                     .lineLimit(3...6)
                     .font(.fuseBody)
                     .padding(12)
-                    .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+                    .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
                     .focused($focused)
                 Text("Optional. Without an instruction, Fuse infers the most useful result from the relationship between the two screens.")
                     .font(.fuseCaption)
@@ -258,7 +256,7 @@ struct InstructionEditor: View {
                 Spacer()
             }
             .padding(20)
-            .background(Theme.background)
+            .background(Theme.grouped)
             .navigationTitle("Instruction")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -274,6 +272,6 @@ struct InstructionEditor: View {
             .onAppear { text = model.instruction; focused = true }
         }
         .presentationDetents([.medium])
-        .preferredColorScheme(.dark)
+        
     }
 }
