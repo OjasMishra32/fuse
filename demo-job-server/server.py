@@ -95,7 +95,7 @@ JOB_PAGE = page("Product Manager, Merchant Growth", """
 <div class="detail"><span>Working style</span><strong>Hybrid</strong></div>
 <div class="detail"><span>Job ID</span><strong>bright-labs-pm-2026</strong></div>
 <p>Open this role in FUSE and pair it with Alex Morgan’s demo résumé.</p>
-<a class="button" href="/applications">View demo hiring inbox →</a>
+<a class="button" href="/apply">Watch FUSE fill an application →</a><a href="/applications">View demo hiring inbox →</a>
 <p class="small">Demo applications only. Your real résumé is not needed.</p></div></aside></div>
 """)
 
@@ -258,7 +258,7 @@ class DemoHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+        self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
         self.end_headers()
         self.wfile.write(data)
 
@@ -280,6 +280,17 @@ class DemoHandler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path in ("/", JOB_PATH):
             self.respond(200, JOB_PAGE, "text/html")
+        elif path == "/apply":
+            self.respond(200, page("Apply for Merchant Growth", (Path(__file__).parent / "application-form.html").read_text()), "text/html")
+        elif path == "/application-form.js":
+            self.respond(200, (Path(__file__).parent / "application-form.js").read_text(), "text/javascript")
+        elif path == "/api/demo/prepared-application":
+            applications = self.server.store.applications()
+            if not applications:
+                self.respond(404, {"error": "First prepare and submit the fictional application in FUSE."})
+            else:
+                payload, _ = applications[0]
+                self.respond(200, {key: value for key, value in payload.items() if key != "applicationID"})
         elif path == "/applications":
             self.respond(200, inbox_page(self.server.store), "text/html")
         elif path.startswith("/api/demo/applications/"):

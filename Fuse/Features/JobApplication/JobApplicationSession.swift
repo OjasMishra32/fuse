@@ -32,7 +32,7 @@ private struct SavedJobApplication: Codable {
 @MainActor @Observable
 final class JobApplicationSession {
     enum Phase: Equatable {
-        case ready, tailoring, submitting, submitted, failed(String)
+        case ready, tailoring, filling, submitting, submitted, failed(String)
     }
 
     private(set) var phase: Phase = .ready
@@ -44,9 +44,10 @@ final class JobApplicationSession {
     private(set) var coverLetter = ""
     private(set) var changes: [String] = []
     private(set) var gaps: [String] = []
+    private(set) var filledFieldCount = 0
     private(set) var receipt: JobApplicationReceipt?
 
-    var isBusy: Bool { phase == .tailoring || phase == .submitting }
+    var isBusy: Bool { phase == .tailoring || phase == .filling || phase == .submitting }
     var hasSubmitted: Bool { receipt != nil && phase == .submitted }
     var canRetry: Bool { !isBusy && !hasSubmitted && saved != nil && !restoreFailed }
     var error: String? { if case .failed(let message) = phase { message } else { nil } }
@@ -126,6 +127,7 @@ final class JobApplicationSession {
             task = nil
             saved = nil
             receipt = nil
+            filledFieldCount = 0
             originalResume = JobApplicationDemo.resume
             tailoredResume = ""
             coverLetter = ""
@@ -163,6 +165,13 @@ final class JobApplicationSession {
                 try checkAttempt(attempt)
                 guard let submission = current.submission else { throw JobApplicationError.invalidReceipt }
                 try validateSavedSubmission(submission, saved: current)
+                phase = .filling
+                filledFieldCount = 0
+                for field in 1...4 {
+                    try await Task.sleep(nanoseconds: 550_000_000)
+                    try checkAttempt(attempt)
+                    filledFieldCount = field
+                }
                 phase = .submitting
                 let confirmed = try await deliver(submission)
                 try checkAttempt(attempt)
@@ -264,6 +273,7 @@ final class JobApplicationSession {
     }
 
     private func applyPresentation(_ value: SavedJobApplication) {
+        filledFieldCount = value.submission == nil ? 0 : 4
         originalResume = value.originalResume
         tailoredResume = value.submission?.resume ?? ""
         coverLetter = value.draft?.coverLetter ?? ""

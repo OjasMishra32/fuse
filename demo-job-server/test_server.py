@@ -27,6 +27,19 @@ def running_server(database: Path):
 
 
 class DemoHTTPTests(unittest.TestCase):
+    def test_form_does_not_invent_a_prepared_application(self):
+        status, body, _ = self.request("GET", "/api/demo/prepared-application")
+        self.assertEqual(status, 404)
+        self.assertIn("First prepare", body["error"])
+
+    def test_form_reuses_saved_documents_but_not_submission_identifier(self):
+        self.request("POST", "/api/demo/applications", self.payload)
+        status, draft, _ = self.request("GET", "/api/demo/prepared-application")
+        self.assertEqual(status, 200)
+        self.assertNotIn("applicationID", draft)
+        self.assertEqual(draft["resume"], self.payload["resume"])
+        self.assertEqual(draft["coverLetter"], self.payload["coverLetter"])
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

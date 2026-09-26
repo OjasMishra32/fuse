@@ -1,0 +1,19 @@
+<style>
+.apply-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(250px,1fr);gap:28px}.field{display:block;margin:0 0 20px;font-size:13px;font-weight:650}.field input,.field textarea{display:block;width:100%;margin-top:9px;border:1px solid #cfdcd4;border-radius:12px;background:#fafcf9;padding:14px;font:15px/1.6 inherit;color:#203f30;transition:background .3s,border .3s}.field textarea{font:14px/1.7 -apple-system,sans-serif;resize:vertical}.field.active input,.field.active textarea{border-color:#52835c;background:#eff8e6;box-shadow:0 0 0 3px #dfeccd}.button{border:0;cursor:pointer;width:100%;font:600 15px -apple-system,sans-serif}.button:disabled{opacity:.5;cursor:default}.steps{padding:0;list-style:none}.steps li{padding:12px 0;border-bottom:1px solid #dbe5d8}.steps li.done{color:#296537}.complete{padding:35px;background:#e9f4e3;border:1px solid #b6d2ab;border-radius:20px}.complete h2{font-size:30px}.check{font-size:36px;color:#296537}.subtle{background:white;color:#214c3b;border:1px solid #cad8c9}#status{min-height:45px;line-height:1.5}#error{color:#a52d27}aside .card{position:sticky;top:20px}[hidden]{display:none!important}@media(max-width:720px){.apply-grid{grid-template-columns:1fr}aside{order:-1}h1{font-size:36px}}
+</style>
+<div class="eyebrow">FUSE → Bright Labs careers</div>
+<h1>Your next chapter.<br>Application, handled.</h1>
+<p class="lead">Product Manager, Merchant Growth · San Francisco</p>
+<div class="apply-grid"><section class="card" id="formCard">
+<h2>Application details</h2><p class="small">Watch the saved FUSE draft fill this real local form. This replay uses the previously generated fictional résumé and cover letter; it does not run AI again.</p>
+<form id="application">
+<label class="field" id="nameField">Full name<input id="candidateName" autocomplete="off" readonly placeholder="Waiting for FUSE"></label>
+<label class="field" id="emailField">Email address<input id="email" type="email" autocomplete="off" readonly placeholder="Waiting for FUSE"></label>
+<label class="field" id="resumeField">Tailored résumé<textarea id="resume" rows="10" readonly placeholder="Your tailored experience will appear here"></textarea></label>
+<label class="field" id="letterField">Cover letter<textarea id="coverLetter" rows="8" readonly placeholder="A letter tailored to Merchant Growth"></textarea></label>
+<button class="button" id="submit" disabled>Submit demo application</button>
+<p class="small">Only Alex Morgan’s fictional application is accepted. Submission writes to the demo employer’s local inbox.</p>
+</form></section>
+<aside><div class="card tint"><div class="eyebrow">Application assistant</div><h2 style="margin-top:16px">From draft to delivered.</h2><ol class="steps"><li id="step1">1 · Fill contact details</li><li id="step2">2 · Add tailored résumé</li><li id="step3">3 · Add cover letter</li><li id="step4">4 · Submit & verify receipt</li></ol><p id="status" role="status" aria-live="polite">Ready to fill your application.</p><button class="button" id="fill">Watch FUSE fill the form</button><p id="error" role="alert"></p><a href="/applications">Open employer’s inbox →</a></div></aside></div>
+<section class="complete" id="success" hidden tabindex="-1"><div class="check">✓</div><div class="eyebrow">Verified by the employer’s local server</div><h2>Application received.</h2><p>Alex Morgan’s application for Product Manager, Merchant Growth is saved in the Bright Labs demo inbox.</p><div class="detail"><span>Applicant</span><strong>Alex Morgan</strong></div><div class="detail"><span>Documents</span><strong>Tailored résumé + cover letter</strong></div><div class="detail"><span>Received</span><strong id="received"></strong></div><p class="small">Confirmation number</p><p class="receipt-code" id="receipt"></p><a class="button" href="/applications">View application in employer’s inbox →</a></section>
+<script src="/application-form.js" defer></script>

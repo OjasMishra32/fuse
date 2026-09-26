@@ -47,7 +47,7 @@ struct JobApplicationView: View {
                     .font(.caption.weight(.semibold)).frame(minHeight: 44)
             }
             Spacer(minLength: 4)
-            Label("DEMO APPLICATION", systemImage: "testtube.2")
+            Label("FUSE APPLY", systemImage: "sparkles")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(Theme.cyan)
                 .padding(.horizontal, 12).padding(.vertical, 8)
@@ -68,6 +68,7 @@ struct JobApplicationView: View {
                     progressCard
                 }
                 if case .failed(let message) = session.phase { failureCard(message) }
+                filledApplication
                 if !session.tailoredResume.isEmpty || !session.coverLetter.isEmpty {
                     DisclosureGroup("Your application documents", isExpanded: $showCompactDocuments) {
                         documentTabs.padding(.top, 12)
@@ -118,7 +119,7 @@ struct JobApplicationView: View {
             Text(session.jobTitle.isEmpty ? "Product Manager, Merchant Growth" : session.jobTitle)
                 .font(isCompact ? .title2.bold() : .title3.bold())
                 .fixedSize(horizontal: false, vertical: true)
-            Text("For \(session.candidateName.isEmpty ? "Alex Morgan" : session.candidateName) · fictional demo")
+            Text("Prepared for \(session.candidateName.isEmpty ? "Alex Morgan" : session.candidateName)")
                 .font(.subheadline).foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
@@ -138,7 +139,8 @@ struct JobApplicationView: View {
         switch session.phase {
         case .ready: return "Ready to begin"
         case .tailoring: return "Tailoring"
-        case .submitting: return "Submitting demo"
+        case .filling: return "Filling application"
+        case .submitting: return "Sending application"
         case .submitted: return "Awaiting receipt"
         case .failed: return "Needs attention"
         }
@@ -177,6 +179,7 @@ struct JobApplicationView: View {
                         progressCard
                     }
                     if case .failed(let message) = session.phase { failureCard(message) }
+                    filledApplication
                     if !session.tailoredResume.isEmpty || !session.coverLetter.isEmpty {
                         documentTabs
                         documentContent
@@ -205,6 +208,64 @@ struct JobApplicationView: View {
         .background(Theme.accent.opacity(0.045))
     }
 
+    private var filledApplication: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "briefcase.fill").foregroundStyle(Theme.violet)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(session.filledFieldCount == 4 ? "Application filled" : "Your application")
+                        .font(.title3.bold())
+                    Text("Bright Labs · Merchant Growth").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text("\(session.filledFieldCount)/4").font(.caption.monospacedDigit().bold())
+            }
+            ProgressView(value: Double(session.filledFieldCount), total: 4).tint(Theme.violet)
+            applicationField("Full name", value: session.candidateName, number: 1, symbol: "person")
+            applicationField("Email", value: JobApplicationDemo.email, number: 2, symbol: "envelope")
+            applicationField("Customized résumé", value: session.tailoredResume, number: 3, symbol: "doc.text")
+            applicationField("Cover letter", value: session.coverLetter, number: 4, symbol: "text.alignleft")
+            if session.filledFieldCount == 4 {
+                Label("Résumé tailored. All application fields completed.", systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.medium)).foregroundStyle(Theme.cyan)
+            }
+        }
+        .padding(18)
+        .background(Theme.violet.opacity(0.06), in: RoundedRectangle(cornerRadius: 22))
+        .accessibilityIdentifier("filledJobApplication")
+    }
+
+    private func applicationField(_ title: String, value: String, number: Int, symbol: String) -> some View {
+        let complete = session.filledFieldCount >= number
+        let active = session.phase == .filling && session.filledFieldCount + 1 == number
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label(title, systemImage: symbol).font(.caption.weight(.semibold))
+                Spacer()
+                if complete { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.cyan) }
+                else if active { ProgressView().controlSize(.mini) }
+            }
+            if complete {
+                if number > 2 {
+                    DisclosureGroup {
+                        Text(value).font(.subheadline).lineSpacing(4).textSelection(.enabled)
+                    } label: {
+                        Text(number == 3 ? "Tailored résumé · View document" : "Personalized cover letter · View")
+                            .font(.subheadline.weight(.medium))
+                    }.tint(Theme.violet)
+                    Text(value).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                } else { Text(value).font(.subheadline).textSelection(.enabled) }
+            } else {
+                Text(active ? "Filling…" : "Waiting for your tailored application")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(active ? Theme.violet : Theme.line, lineWidth: active ? 2 : 1))
+        .animation(.easeInOut(duration: 0.25), value: complete)
+    }
+
     private var progressCard: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 12) {
@@ -222,7 +283,7 @@ struct JobApplicationView: View {
             }
             VStack(spacing: 14) {
                 progressStep(number: "1", title: "Tailor résumé + cover letter", detail: "Use the selected job and résumé", complete: !session.tailoredResume.isEmpty, active: isTailoring)
-                progressStep(number: "2", title: "Submit to the demo service", detail: "Wait for its application receipt", complete: session.receipt != nil, active: isSubmitting)
+                progressStep(number: "2", title: "Fill application & confirm delivery", detail: "Contact details, résumé, and cover letter", complete: session.receipt != nil, active: isSubmitting)
             }
             if isTailoring {
                 Button("Cancel preparation", role: .cancel) { session.cancel() }
@@ -243,7 +304,8 @@ struct JobApplicationView: View {
         switch session.phase {
         case .ready: return "A stronger fit starts with your story"
         case .tailoring: return "Finding your most relevant experience"
-        case .submitting: return "Sending your demo application"
+        case .filling: return "Filling your application"
+        case .submitting: return "Your application is filled"
         case .submitted: return "Waiting for the receipt"
         case .failed: return "Your application needs attention"
         }
@@ -253,7 +315,8 @@ struct JobApplicationView: View {
         switch session.phase {
         case .ready: return "Return to your pair and fold to prepare and submit this fictional application."
         case .tailoring: return "Preparing role-specific wording and a cover letter from your selected résumé."
-        case .submitting: return "The tailored résumé and cover letter are going to the demo endpoint."
+        case .filling: return "Adding your details, tailored résumé, and cover letter."
+        case .submitting: return "Saving it to the local hiring inbox."
         case .submitted: return "Submission is not confirmed until the service returns a receipt."
         case .failed: return "Read the message below. Your source résumé is still here."
         }

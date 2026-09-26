@@ -46,7 +46,7 @@ struct JobApplicationWorkspaceView: View {
                 Image(systemName: "briefcase.fill").foregroundStyle(Theme.violet)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("A job worth the next step.").font(.headline)
-                    Text("JOB APPLICATION · FICTIONAL DEMO").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                    Text("RÉSUMÉ + JOB → APPLICATION").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 HingeBadge(hinge: model.hinge)
@@ -76,7 +76,7 @@ struct JobApplicationWorkspaceView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .center, spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Fold to tailor & apply.").font(.title3.bold())
+                        Text("Close. Your application, filled.").font(.title3.bold())
                         Text("Bright Labs · Product Manager, Merchant Growth").font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -85,11 +85,11 @@ struct JobApplicationWorkspaceView: View {
                         .buttonStyle(.bordered).disabled(!model.jobCanCombine)
                         .accessibilityIdentifier("jobPreviewClosed")
                     #endif
-                    Button("Apply to demo job") { model.startJobApplication(trigger: .seam) }
+                    Button("Fill my application") { model.startJobApplication(trigger: .seam) }
                         .buttonStyle(.borderedProminent).tint(Theme.violet).disabled(!model.jobCanCombine)
                         .accessibilityIdentifier("applyDemoJob")
                 }
-                Text("Closing sends these two inputs to OpenAI, tailors the fictional résumé, and submits only to the local demo employer. No real employer receives it.")
+                Text("FUSE uses AI to tailor your résumé and fill this application. Sample role · delivery stays in the local demo inbox.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }.padding(18).background(Theme.groupedCard)
         }

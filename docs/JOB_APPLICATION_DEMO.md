@@ -43,3 +43,9 @@ Local secrets, the employer SQLite database, and generated test receipts must no
 - Inner review and compact receipt presentation were inspected. The app retains the receipt after relaunch; **New demo application** explicitly clears the local session for another rehearsal, without deleting the employer's prior receipt.
 - Bitrig's host close button selected Closed, but FUSE continued reporting 180° Open. No physical hinge callback or automatic outer-display handoff was verified. The labeled simulator preview is the demonstrated trigger; do not claim physical background folding was validated.
 - No real employer, external application platform, or user's personal résumé was used. The local demo server must remain running on the simulator's Mac; port 8777 is not a deployed public backend.
+
+## Visible application-form replay
+
+After one successful native application, open http://127.0.0.1:8777/apply in Chrome. Select **Watch FUSE fill the form** to animate contact details, the saved AI-tailored résumé, and cover letter into a real local employer form. Select **Submit demo application**. Success appears only after POST saves the application and a separate GET verifies its receipt. Reload/retry retains the same application identifier to avoid duplicates.
+
+This is an explicitly labeled browser replay of the previously generated fictional documents, not new AI generation or a verified fold-triggered form animation. Chrome was tested; the Codex in-app browser did not execute the fill interaction during testing. The native app and its fold handling are unchanged.
