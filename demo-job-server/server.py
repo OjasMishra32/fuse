@@ -197,6 +197,13 @@ class ApplicationStore:
             ).fetchone()
         return json.loads(row[0]) if row else None
 
+    def application(self, application_id: str):
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT payload, receipt FROM applications WHERE application_id = ?", (application_id,)
+            ).fetchone()
+        return (json.loads(row[0]), json.loads(row[1])) if row else None
+
     def applications(self) -> list[tuple[dict, dict]]:
         with self.connect() as connection:
             rows = connection.execute(
@@ -230,6 +237,24 @@ def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict:
             raise ValidationError("Duplicate JSON fields are not accepted")
         result[key] = value
     return result
+
+
+def filled_application_page(payload, receipt):
+    fields = "".join(
+        f'<label class="field">{label}<textarea readonly rows="{rows}">{escape(payload[key])}</textarea></label>'
+        for label, key, rows in [("Customized résumé", "resume", 14), ("Cover letter", "coverLetter", 10)]
+    )
+    return page("Your completed application", f"""
+<style>.field{{display:block;margin:22px 0;font-weight:650}}.field input,.field textarea{{display:block;box-sizing:border-box;width:100%;margin-top:9px;padding:14px;border:1px solid #cad8ce;border-radius:12px;background:#fafcf9;color:#203f30;font:16px/1.6 -apple-system,sans-serif}}h1{{font-size:38px}}.card{{max-width:760px;margin:auto}}</style>
+<div class="eyebrow">Product Manager · Merchant Growth</div>
+<h1>Your application is filled.</h1><p class="lead">Résumé customized. Received by the Bright Labs local hiring inbox.</p>
+<form class="card"><h2>Application details</h2>
+<label class="field">Full name<input readonly value="{escape(payload['candidateName'], quote=True)}"></label>
+<label class="field">Email address<input readonly type="email" value="{escape(payload['email'], quote=True)}"></label>
+{fields}<div class="status">✓ Application received</div>
+<p class="small">Received {escape(receipt['receivedAt'])}</p>
+<p class="small receipt-code">Confirmation: {escape(receipt['receiptID'])}</p>
+</form>""")
 
 
 class DemoServer(ThreadingHTTPServer):
@@ -280,6 +305,17 @@ class DemoHandler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path in ("/", JOB_PATH):
             self.respond(200, JOB_PAGE, "text/html")
+        elif path.startswith("/applications/"):
+            try:
+                application_id = canonical_uuid(path.removeprefix("/applications/"))
+            except ValidationError as error:
+                self.respond(400, {"error": str(error)})
+                return
+            saved = self.server.store.application(application_id)
+            if saved:
+                self.respond(200, filled_application_page(*saved), "text/html")
+            else:
+                self.respond(404, {"error": "Application not found"})
         elif path == "/apply":
             self.respond(200, page("Apply for Merchant Growth", (Path(__file__).parent / "application-form.html").read_text()), "text/html")
         elif path == "/application-form.js":

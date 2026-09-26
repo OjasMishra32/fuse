@@ -40,6 +40,18 @@ class DemoHTTPTests(unittest.TestCase):
         self.assertEqual(draft["resume"], self.payload["resume"])
         self.assertEqual(draft["coverLetter"], self.payload["coverLetter"])
 
+    def test_filled_application_page_uses_exact_submission_and_escapes_content(self):
+        self.payload["resume"] += "\n<script>alert(1)</script>"
+        _, receipt, _ = self.submit()
+        status, html, _ = self.request("GET", "/applications/" + self.payload["applicationID"])
+        self.assertEqual(status, 200)
+        self.assertIn('value="alex.morgan@example.com"', html)
+        self.assertIn(receipt["receiptID"], html)
+        self.assertIn("&lt;script&gt;", html)
+        self.assertNotIn("<script>alert", html)
+        status, _, _ = self.request("GET", "/applications/" + str(uuid4()))
+        self.assertEqual(status, 404)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
