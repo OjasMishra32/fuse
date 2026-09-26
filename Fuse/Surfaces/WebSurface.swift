@@ -112,16 +112,37 @@ final class WebSurfaceModel: SurfaceModel {
           try { s = (window.getSelection && window.getSelection().toString()) || ''; } catch(e) {}
           var b = '';
           try { b = (document.body && document.body.innerText) || ''; } catch(e) {}
-          return JSON.stringify({ s: s, b: b });
+          var hero = '';
+          try {
+            var og = document.querySelector('meta[property="og:image"], meta[name="og:image"], meta[name="twitter:image"]');
+            if (og && og.content) hero = og.content;
+            if (!hero) {
+              var best = null, bestArea = 40000;
+              var imgs = document.images;
+              for (var i = 0; i < imgs.length; i++) {
+                var im = imgs[i];
+                var a = (im.naturalWidth || im.width) * (im.naturalHeight || im.height);
+                if (a > bestArea && im.currentSrc && !/logo|icon|sprite|avatar/i.test(im.currentSrc)) { best = im; bestArea = a; }
+              }
+              if (best) hero = best.currentSrc || best.src;
+            }
+          } catch(e) {}
+          return JSON.stringify({ s: s, b: b, h: hero });
         })()
         """
         let raw = await evaluateString(js)
         var selected = ""
         var bodyText = ""
+        var heroURL: URL?
         if let data = raw.data(using: .utf8),
            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             selected = (obj["s"] as? String) ?? ""
             bodyText = (obj["b"] as? String) ?? ""
+            if let h = obj["h"] as? String, let u = URL(string: h, relativeTo: url)?.absoluteURL, u.scheme?.hasPrefix("http") == true { heroURL = u }
+        }
+        var hero: UIImage?
+        if let heroURL, let (data, _) = try? await URLSession.shared.data(from: heroURL), let img = UIImage(data: data), img.size.width > 120 {
+            hero = img.fuseDownscaled(maxEdge: 1024)
         }
 
         var text = ""
@@ -137,8 +158,9 @@ final class WebSurfaceModel: SurfaceModel {
         let title = pageTitle.isEmpty ? (url.host ?? url.absoluteString) : pageTitle
         var meta: [String: String] = ["url": url.absoluteString, "title": title]
         if let host = url.host { meta["host"] = host }
+        if let heroURL { meta["main_image"] = heroURL.absoluteString }
 
-        return SurfaceSnapshot(kind: .web, title: title, text: text, image: image?.fuseDownscaled(maxEdge: 1024), metadata: meta)
+        return SurfaceSnapshot(kind: .web, title: title, text: text, image: image?.fuseDownscaled(maxEdge: 1024), metadata: meta, heroImage: hero)
     }
 
     func apply(_ preset: SurfacePreset) {

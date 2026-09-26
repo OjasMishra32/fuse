@@ -59,13 +59,17 @@ struct SurfaceSnapshot {
     var image: UIImage?
     /// Structured facts the model can rely on (url, latitude, longitude, dates, page count…).
     var metadata: [String: String]
+    /// The main photo on this screen (a page's og:image, the photo itself…). Used for image fusion
+    /// so the image model works from the actual picture, not a screenshot of it.
+    var heroImage: UIImage? = nil
 
-    init(kind: SurfaceKind, title: String, text: String = "", image: UIImage? = nil, metadata: [String: String] = [:]) {
+    init(kind: SurfaceKind, title: String, text: String = "", image: UIImage? = nil, metadata: [String: String] = [:], heroImage: UIImage? = nil) {
         self.kind = kind
         self.title = title
         self.text = text
         self.image = image
         self.metadata = metadata
+        self.heroImage = heroImage
     }
 
     var isEmpty: Bool {

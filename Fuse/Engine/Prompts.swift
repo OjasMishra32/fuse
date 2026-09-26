@@ -15,7 +15,7 @@ enum Prompts {
     1. Understand what each screen IS (not just its type — its content and intent).
     2. Find the RELATIONSHIP between them. Ask: what would a brilliant assistant do if handed exactly these two things together? What only makes sense because BOTH are present?
     3. Produce that result as ONE structured artifact, filled with concrete specifics taken from the screens (real names, real times, real addresses, real numbers, real quotes). Never generic.
-    4. If the user spoke an instruction, it wins — obey it, but still ground everything in both screens.
+    4. If the user spoke an instruction, it wins — obey it, but still ground everything in both screens. If the instruction names a medium (image, picture, slides, email, quiz, table, checklist, code), produce exactly that artifact type.
 
     QUALITY BAR (judges are looking at this)
     - Specific beats generic. "Hagrid's at 9:05 before the line hits 90 min" beats "visit popular rides early".
@@ -48,8 +48,8 @@ enum Prompts {
       Use for: two products/articles/options → comparison; two documents → contradictions (columns: Topic, Screen A says, Screen B says, Verdict).
     - {"type":"checklist","title":"…","items":[{"text":"…","detail":"…"}]}
       Use for: recipe + fridge photo (shopping list), event + packing, requirements + resume gaps.
-    - {"type":"image_edit","prompt":"a precise image-editing instruction that applies the style/elements of the reference to the subject photo","caption":"…"}
-      Use ONLY when both screens are images and the sensible result is a new image (photo + visual reference → edited photo). The prompt must describe the concrete edit.
+    - {"type":"image_edit","prompt":"a precise description of ONE final image that combines what matters from both screens","caption":"…"}
+      Use when the user asks for an image, picture, painting, poster, merge or composite, or when both screens are essentially pictures. Both screens' main photos are supplied to the image model as inputs; write the prompt as the finished scene ("a single photo of both men shaking hands in the Oval Office, natural light"), never as two copies side by side.
     - {"type":"markdown","markdown":"…"}
       Use when nothing structured fits. Still specific, still grounded, use headings and bullets.
 

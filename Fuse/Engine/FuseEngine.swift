@@ -36,8 +36,10 @@ struct FuseEngine {
         if let framing { parts.append(.text(framing)) }
         parts.append(.text(Prompts.describe(left, side: "left")))
         if let img = left.image { parts.append(.image(img)) }
+        if let hero = left.heroImage { parts.append(.text("The main photo on the left screen:")); parts.append(.image(hero)) }
         parts.append(.text(Prompts.describe(right, side: "right")))
         if let img = right.image { parts.append(.image(img)) }
+        if let hero = right.heroImage { parts.append(.text("The main photo on the right screen:")); parts.append(.image(hero)) }
         parts.append(.text(Prompts.closing))
 
         progress(.relating)
@@ -53,7 +55,9 @@ struct FuseEngine {
 
         if case .image(var image) = result.artifact, image.imageBase64 == nil {
             progress(.rendering)
-            let sources = [left.image, right.image].compactMap { $0 }
+            // Work from the actual photos when the screens have them, never from screenshots of pages.
+            let sources = [left.heroImage ?? (left.kind == .web ? nil : left.image),
+                           right.heroImage ?? (right.kind == .web ? nil : right.image)].compactMap { $0 }
             let data: Data
             if sources.isEmpty {
                 data = try await client.imageGenerate(prompt: image.prompt)
