@@ -28,6 +28,7 @@ final class DocumentSurfaceModel: SurfaceModel {
     static let allowedTypes: [UTType] = [.pdf, .plainText, .sourceCode, .json, .rtf, .utf8PlainText, .image, .text]
 
     private(set) var content: Content?
+    private(set) var contentRevision = 0
     private(set) var filename: String = ""
     private(set) var typeLabel: String = ""
     private(set) var pageCount: Int = 0
@@ -258,6 +259,7 @@ final class DocumentSurfaceModel: SurfaceModel {
     }
 
     private func clearState() {
+        contentRevision += 1
         extractionTask?.cancel()
         extractionTask = nil
         content = nil

@@ -1,125 +1,28 @@
 import SwiftUI
 
-/// One completed close per observed open; an unprepared close is consumed too.
-struct JobApplicationFoldGate {
-    private var armed = false
-    mutating func observe(closed: Bool, open: Bool, eligible: Bool) -> Bool {
-        if open { armed = true }
-        guard closed, armed else { return false }
-        armed = false
-        return eligible
-    }
-}
-
+// Compatibility cleanup for the previously installed local-employer demo.
+// All new pairs, including the sample résumé/job, go through FuseEngine.
 extension AppModel {
-    /// Only the complete sample pair opts into automatic application delivery.
-    /// Match the actual browser location and complete source text, never a keyword or headline.
-    var jobApplicationPair: (job: WebSurfaceModel, resume: any SurfaceModel)? {
-        guard !left.isHome, !right.isHome else { return nil }
-        for (jobModel, resumeModel) in [(left.model, right.model), (right.model, left.model)] {
-            guard let job = jobModel as? WebSurfaceModel,
-                  job.currentURL == JobApplicationDemo.jobURL else { continue }
-            let sourceText: String
-            if let notes = resumeModel as? NotesSurfaceModel {
-                sourceText = notes.text
-            } else if let file = resumeModel as? DocumentSurfaceModel,
-                      case .text(let text) = file.content {
-                sourceText = text
-            } else { continue }
-            guard JobApplicationDemo.normalize(sourceText) == JobApplicationDemo.normalize(JobApplicationDemo.resume)
-            else { continue }
-            return (job, resumeModel)
-        }
-        return nil
-    }
-
-    private var jobInstructionMatches: Bool {
-        let requested = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
-        return requested.isEmpty || requested == DemoScenario.named("job-application")?.instruction
-    }
-
-    /// Clear only this recipe's presentation. Keep its saved application/receipt available.
     func exitJobApplicationWorkspace(clearInstruction: Bool = false) {
-        guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
-        jobDemoActive = false; jobShowingResult = false
-        jobPreviewCover = false; jobForceInnerPreview = false
-        jobFoldGate = JobApplicationFoldGate()
-        if clearInstruction || instruction == DemoScenario.named("job-application")?.instruction {
-            instruction = ""
-        }
+        jobDemoActive = false
+        jobShowingResult = false
+        jobPreviewCover = false
+        jobForceInnerPreview = false
+        jobCaptureTask?.cancel()
+        jobCaptureInProgress = false
+        if clearInstruction { instruction = "" }
         resetIntentPreview()
-        foldPrompt = false; foldProgress = 0
-        if jobWorkspaceVisible && jobSceneActive { attachOrb() }
-    }
-
-    func activateJobApplicationIfRecognized() {
-        if jobDemoActive && (jobApplicationPair == nil || !jobInstructionMatches) {
-            exitJobApplicationWorkspace()
-        }
-        guard !jobDemoActive, phase == .compose, jobApplicationPair != nil, jobInstructionMatches else { return }
-        jobDemoActive = true
-        jobPreviewCover = false; jobForceInnerPreview = false
-        jobFoldGate = JobApplicationFoldGate()
-        if let hinge, hinge.status == .fullyOpen || hinge.angle.degrees > 120 {
-            _ = jobFoldGate.observe(closed: false, open: true, eligible: false)
-        }
-        resetIntentPreview()
-        instruction = ""; foldPrompt = false; foldProgress = 0
-        FloatingOrb.shared.dismiss()
-        // A previous receipt belongs to this sample and remains available until Start again.
-    }
-
-    var jobCanCombine: Bool {
-        jobDemoActive && jobSceneActive && jobWorkspaceVisible && !jobCaptureInProgress
-            && (jobApplication.phase == .ready || jobApplication.hasSubmitted) && !showSettings && !showScenarios
-            && !showInstructionEditor && !showHistory && !showCommunity && !showPaywall
-            && jobApplicationPair != nil && jobApplicationPair?.job.isLoading == false
-    }
-
-    func startJobApplication(trigger: FuseTrigger) {
-        // Reopening an already completed pair shows its artifact without sending again.
-        if jobDemoActive && jobSceneActive && jobWorkspaceVisible && jobApplicationPair != nil
-            && jobApplication.hasSubmitted {
-            jobShowingResult = true
-            return
-        }
-        guard jobCanCombine else { return }
-        // Only the demo employer is an automatic destination. Never infer an application URL.
-        guard let pair = jobApplicationPair else {
-            flash("Use the Bright Labs demo job and fictional résumé for this application.")
-            return
-        }
-        jobCaptureInProgress = true
-        jobShowingResult = true
-        lastTrigger = trigger
-        Haptics.heavy()
-        jobCaptureTask = Task { [weak self] in
-            guard let self else { return }
-            defer { self.jobCaptureInProgress = false }
-            async let job = pair.job.capture()
-            async let resume = pair.resume.capture()
-            let (jobInput, resumeInput) = await (job, resume)
-            guard !Task.isCancelled, self.jobDemoActive else { return }
-            self.jobApplication.start(jobText: jobInput.text, resumeText: resumeInput.text)
-        }
-    }
-
-    func previewJobCover() {
-        guard jobCanCombine else { return }
-        startJobApplication(trigger: .demo)
-        jobPreviewCover = true
+        foldPrompt = false
+        foldProgress = 0
     }
 
     func restartJobDemo() {
-        guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
-        jobApplication.reset()
-        guard jobApplication.phase == .ready, let scenario = DemoScenario.named("job-application") else { return }
-        apply(scenario)
+        if let scenario = DemoScenario.named("job-application") { apply(scenario) }
     }
 
     func leaveJobApplication() {
-        guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
         exitJobApplicationWorkspace(clearInstruction: true)
-        left.goHome(); right.goHome()
+        left.goHome()
+        right.goHome()
     }
 }

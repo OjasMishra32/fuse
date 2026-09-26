@@ -32,6 +32,7 @@ struct FuseSuggestion: Identifiable, Codable, Hashable {
     /// SF Symbol that matches the artifact type, regardless of what the model suggested.
     var resolvedSymbol: String {
         switch artifact.lowercased() {
+        case "application": "briefcase"
         case "itinerary": "map"
         case "event": "calendar.badge.plus"
         case "email": "envelope"
@@ -61,7 +62,8 @@ struct IntentPreviewer {
     Rules:
     - Each suggestion must need BOTH screens (or the one non-empty screen plus common sense). Be specific to their actual content — name the place, the event, the document.
     - "instruction" is the one-sentence command the engine will execute; concrete, imperative, mentions the content ("Plan one day at Islands of Adventure with ride times and where to eat, pinned on the map").
-    - "artifact" is one of: itinerary, event, email, quiz, grade, slides, code, diff, table, checklist, image_edit, markdown.
+    - "artifact" is one of: application, itinerary, event, email, quiz, grade, slides, code, diff, table, checklist, image_edit, markdown.
+    - For an actual job listing plus a résumé in either order, suggest an application draft first, grounded in those inputs. A résumé with an unrelated input such as a map must use that relationship instead. Do not promise website submission.
     - "title" is 2–4 words, verb first ("Plan the day", "Add to calendar", "Grade my answers").
     - "symbol" is an SF Symbol name.
     - When both screens contain images, inspect them. For furniture + room, clothing + person, or a subject + visual style reference, put an image_edit suggestion first. Infer the scene and object from their contents in either left/right order. Name the concrete edit ("Place the green armchair beside the window in this room"). Avoid a generic comparison when a visual composition is the useful result. Documents and message screenshots still need text-based suggestions.

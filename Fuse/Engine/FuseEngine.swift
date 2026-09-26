@@ -53,6 +53,12 @@ struct FuseEngine {
         ]
         result.instruction = instruction?.isEmpty == false ? instruction : nil
 
+        if case .application(let application) = result.artifact {
+            result.artifact = .application(try application.grounded(left: left, right: right))
+            result.title = "Your application draft"
+            result.summary = "Tailored to \(application.role) at \(application.company). Review before submitting."
+        }
+
         if case .image(var image) = result.artifact {
             // Only the image endpoint can supply pixels. Never accept base64 invented
             // by the text router, or turn a cancelled plan into a paid edit request.

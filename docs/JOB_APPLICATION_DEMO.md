@@ -1,5 +1,19 @@
 # Apply with a fold — team integration
 
+## Current behavior: shared AI application drafts
+
+The active job flow now uses the same `FuseEngine`, OpenAI client, intent preview, fold lifecycle, history, sharing and result screen as every other recipe. There is no employer URL or sample résumé equality check in the active route. Browser/Notes/Files/PDF text is captured from the selected panes; their content and the user's instruction determine the artifact. Résumé + Maps does not opt into a job-specific path.
+
+The new `application` artifact contains the actual employer, role, name, email, source-backed résumé edits, cover letter and missing information. FUSE reconstructs the résumé from the captured source and rejects unknown original passages, overlapping edits, changed metrics, invented contact details and company/role names absent from the listing. These checks reduce factual errors; they do not prove semantic correctness. Review remains necessary.
+
+Fold a readable job listing and résumé in either order, or use the normal FUSE control. The result is an application draft with filled contact fields and expandable documents. Use the standard Share/Copy actions. The flow does not submit to an arbitrary employer or fill its remote form. Authenticated application sites need a separate supported adapter. Unreadable or incomplete inputs should request the missing source instead of producing a fictional application.
+
+The Bright Labs page and Alex Morgan file remain optional examples. They run through the same shared AI flow as other inputs. The older local-employer session, server and associated tests below are retained for compatibility/history, but are no longer invoked by foreground fold or Fuse actions. An old receipt is never substituted for a new shared-engine result. Changed Notes or file content invalidates the shared cache.
+
+Validation: the full native suite ran 66 tests, with the opt-in live test skipped and 65 passing. The live test was then run separately with the configured OpenAI client: Sam Rivera + Northstar and Jordan Lee + Harbor Studio each produced grounded application artifacts, with reversed pane order for the second pair. Résumé + a Portland map produced a different artifact. Both runs passed. No real applicant data or employer submission was used for these checks. The simulator build is installed; this round does not independently verify physical fold/outer-screen handoff.
+
+The sections below describe the earlier, retired automatic demo-delivery path.
+
 This is the **job-application use case** inside the existing FUSE application. It starts from shared `origin/main` commit `355666e` on branch `codex/job-application-demo`. Other recipes, image workflows, Safari extensions, and shared result types remain on the team's implementation. The earlier local broad redesign is not included.
 
 ## Demo

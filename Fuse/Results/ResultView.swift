@@ -110,6 +110,8 @@ struct ResultView: View {
     @ViewBuilder
     private var artifact: some View {
         switch result.artifact {
+        case .application(let application):
+            ApplicationDraftView(application: application)
         case .markdown(let markdown):
             MarkdownArtifactView(markdown: markdown)
         case .itinerary(let itinerary):
@@ -266,6 +268,7 @@ extension FuseResult {
 extension FuseArtifact {
     var plainText: String {
         switch self {
+        case .application(let application): return application.exportText
         case .markdown(let markdown):
             return markdown
 

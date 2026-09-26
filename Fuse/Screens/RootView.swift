@@ -16,9 +16,7 @@ struct RootView: View {
         ZStack {
             Theme.background
 
-            if model.jobDemoActive && model.jobShowingResult {
-                JobApplicationWorkspaceView(model: model)
-            } else if model.isClosed {
+            if model.isClosed {
                 CoverView(model: model)
             } else {
                 mainStage

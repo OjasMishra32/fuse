@@ -5,6 +5,7 @@ import Foundation
 extension FuseArtifact {
     var compactText: String {
         switch self {
+        case .application(let application): return application.exportText
         case .markdown(let md): return md
         case .itinerary(let it):
             return it.days.map { day in

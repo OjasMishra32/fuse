@@ -2,180 +2,113 @@ import XCTest
 @testable import Fuse
 
 final class JobApplicationFoldTests: XCTestCase {
-    func testClosedLaunchAndDuplicateEventsCannotApply() {
-        var gate = JobApplicationFoldGate()
-        XCTAssertFalse(gate.observe(closed: true, open: false, eligible: true))
-        XCTAssertFalse(gate.observe(closed: false, open: true, eligible: true))
-        XCTAssertTrue(gate.observe(closed: true, open: false, eligible: true))
-        XCTAssertFalse(gate.observe(closed: true, open: false, eligible: true))
-    }
-    func testUnpreparedCloseIsConsumedAndNeedsReopen() {
-        var gate = JobApplicationFoldGate()
-        _ = gate.observe(closed: false, open: true, eligible: false)
-        XCTAssertFalse(gate.observe(closed: true, open: false, eligible: false))
-        XCTAssertFalse(gate.observe(closed: true, open: false, eligible: true))
-        _ = gate.observe(closed: false, open: true, eligible: true)
-        XCTAssertTrue(gate.observe(closed: true, open: false, eligible: true))
-    }
-    @MainActor func testJobScenarioPreservesTeamRecipesAndNeverUsesGenericPreview() {
-        XCTAssertNotNil(DemoScenario.named("theme-park"))
-        XCTAssertNotNil(DemoScenario.named("cover-email"))
-        let model = AppModel()
-        model.apply(DemoScenario.named("job-application")!)
-        XCTAssertTrue(model.jobDemoActive)
-        XCTAssertEqual(model.left.kind, .web)
-        XCTAssertEqual(model.right.kind, .notes)
-        model.schedulePreview()
-        XCTAssertFalse(model.isPreviewing)
-        XCTAssertTrue(model.suggestions.isEmpty)
-        XCTAssertFalse(model.jobCanCombine, "A background workspace cannot submit")
+    // Explicit opt-in only. Read an existing local configuration without logging credentials.
+    @MainActor func testLiveSharedRouterWithDifferentInputs() async throws {
+        guard let path = ProcessInfo.processInfo.environment["FUSE_LIVE_CONFIG_PLIST"] else {
+            throw XCTSkip("Live network verification is opt-in")
+        }
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        let config = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        let key = config?["fuse.config.openAIKey"] as? String ?? ""
+        guard !key.isEmpty else { throw XCTSkip("No configured API key") }
+        let client = OpenAIClient(apiKey: key, model: config?["fuse.config.openAIModel"] as? String ?? AppConfig.openAIModel)
+        let engine = FuseEngine(client: client)
+        for (name, company, reversed) in [("Sam Rivera", "Northstar", false), ("Jordan Lee", "Harbor Studio", true)] {
+            let (resume, job) = inputs(name, company: company)
+            let result = try await engine.fuse(left: reversed ? job : resume, right: reversed ? resume : job,
+                                              instruction: nil, progress: { _ in })
+            guard case .application(let application) = result.artifact else { return XCTFail("Expected application") }
+            XCTAssertEqual(application.candidate, name)
+            XCTAssertEqual(application.company, company)
+            XCTAssertFalse(application.tailoredResume?.isEmpty ?? true)
+            XCTAssertFalse(application.coverLetter.contains("Alex Morgan"))
+        }
+        let (resume, _) = inputs()
+        let map = SurfaceSnapshot(kind: .maps, title: "Portland", text: "Portland, Oregon. Selected location: downtown. Coordinates 45.52, -122.67.")
+        let other = try await engine.fuse(left: resume, right: map, instruction: nil, progress: { _ in })
+        if case .application = other.artifact { XCTFail("An unrelated map must not create a job application") }
     }
 
-    @MainActor func testCompleteSamplePairActivatesInBothOrders() {
-        for reversed in [false, true] {
-            let model = AppModel()
-            let jobPane = reversed ? model.right : model.left
-            let resumePane = reversed ? model.left : model.right
-            jobPane.apply(.url(JobApplicationDemo.jobURL), as: .web)
-            resumePane.apply(.text(JobApplicationDemo.resume), as: .notes)
-            let session = model.jobApplication
-            XCTAssertTrue(model.jobApplicationPair?.job === jobPane.model)
-            XCTAssertTrue(model.jobApplicationPair?.resume === resumePane.model)
-            model.schedulePreview()
-            XCTAssertTrue(model.jobDemoActive)
-            XCTAssertFalse(model.jobShowingResult, "Recognizing a pair must not replace the shared two-app stage")
-            XCTAssertFalse(model.isPreviewing)
-            XCTAssertTrue(model.suggestions.isEmpty)
-            XCTAssertTrue(model.jobApplication === session, "Recognition preserves the existing application session")
-            XCTAssertFalse(model.jobFoldGate.observe(closed: true, open: false, eligible: true),
-                           "Recognition without an observed open must not arm a close")
-            (jobPane.model as? WebSurfaceModel)?.stop()
+    private func inputs(_ name: String = "Sam Rivera", company: String = "Northstar") -> (SurfaceSnapshot, SurfaceSnapshot) {
+        let resume = "\(name)\nsam@example.com\nSoftware engineer at Atlas, 2022–2025.\nReduced build time by 25% using Swift and automated testing.\nSkills: Swift, testing, collaboration."
+        let job = "\(company) is hiring an iOS Engineer. Build accessible Swift applications and improve testing reliability. Collaborate with designers and review code."
+        return (SurfaceSnapshot(kind: .document, title: "CV.txt", text: resume),
+                SurfaceSnapshot(kind: .web, title: "Careers", text: job))
+    }
+
+    private func draft(_ name: String = "Sam Rivera", company: String = "Northstar", side: String = "left") -> ApplicationDraft {
+        ApplicationDraft(company: company, role: "iOS Engineer", candidate: name, email: "sam@example.com",
+            resumeSide: side,
+            edits: [.init(original: "Reduced build time by 25% using Swift and automated testing.",
+                          revised: "Improved Swift build efficiency by 25% through automated testing.",
+                          reason: "Highlights the testing skills required by the role.")],
+            coverLetter: "I am interested in the iOS Engineer role. My Swift development and automated testing experience can contribute to your team.",
+            missingInformation: ["Work authorization was not supplied."])
+    }
+
+    func testDifferentCandidatesAndEmployersInBothOrders() throws {
+        for (name, company) in [("Sam Rivera", "Northstar"), ("Jordan Lee", "Harbor Studio")] {
+            let (resume, job) = inputs(name, company: company)
+            for reversed in [false, true] {
+                let result = try draft(name, company: company, side: reversed ? "right" : "left")
+                    .grounded(left: reversed ? job : resume, right: reversed ? resume : job)
+                XCTAssertEqual(result.candidate, name)
+                XCTAssertEqual(result.company, company)
+                XCTAssertTrue(result.tailoredResume!.contains("Improved Swift build efficiency by 25%"))
+                XCTAssertTrue(result.tailoredResume!.contains("Atlas, 2022–2025"))
+                XCTAssertEqual(result.sourceResume, resume.text)
+                let artifact = FuseArtifact.application(result)
+                let decoded = try JSONDecoder().decode(FuseArtifact.self, from: JSONEncoder().encode(artifact))
+                XCTAssertEqual(artifact, decoded)
+                XCTAssertTrue(artifact.compactText.contains(name))
+            }
         }
     }
 
-    @MainActor func testFileResumePairsWithJobInBothOrdersAndRejectsPartialText() async {
-        for reversed in [false, true] {
-            let model = AppModel()
-            let jobPane = reversed ? model.right : model.left
-            let resumePane = reversed ? model.left : model.right
-            jobPane.apply(.url(JobApplicationDemo.jobURL), as: .web)
-            resumePane.apply(.text(JobApplicationDemo.resume), as: .document)
-            XCTAssertNotNil(model.jobApplicationPair)
-            let captured = await model.jobApplicationPair!.resume.capture()
-            XCTAssertEqual(captured.text, JobApplicationDemo.resume)
-            model.activateJobApplicationIfRecognized()
-            XCTAssertTrue(model.jobDemoActive)
-            resumePane.apply(.text("Alex Morgan — incomplete résumé"), as: .document)
-            XCTAssertNil(model.jobApplicationPair)
-            model.activateJobApplicationIfRecognized()
+    func testRejectsInventedContactMetricsAndUnrelatedJob() throws {
+        let (resume, job) = inputs()
+        var invalid = draft()
+        invalid.email = "invented@example.com"
+        XCTAssertThrowsError(try invalid.grounded(left: resume, right: job))
+        invalid = draft()
+        invalid.edits[0].revised = "Improved build time by 90%."
+        XCTAssertThrowsError(try invalid.grounded(left: resume, right: job))
+        invalid = draft()
+        invalid.edits[0].original = "Made up achievement"
+        XCTAssertThrowsError(try invalid.grounded(left: resume, right: job))
+        XCTAssertThrowsError(try draft().grounded(left: resume,
+            right: SurfaceSnapshot(kind: .maps, title: "Map", text: "A nearby park")))
+        XCTAssertThrowsError(try draft().grounded(left: .empty(.document), right: job))
+    }
+
+    func testAIProvidedSourceCannotReplaceTheResume() throws {
+        let (resume, job) = inputs()
+        var value = draft()
+        value.sourceResume = "Fabricated"
+        value.tailoredResume = "Fabricated"
+        let result = try value.grounded(left: resume, right: job)
+        XCTAssertEqual(result.sourceResume, resume.text)
+        XCTAssertFalse(result.tailoredResume!.contains("Fabricated"))
+    }
+
+    @MainActor func testSampleAndOtherRecipesAllUseSharedRoute() {
+        let model = AppModel()
+        for id in ["job-application", "two-photos", "theme-park", "cover-email"] {
+            model.apply(DemoScenario.named(id)!)
             XCTAssertFalse(model.jobDemoActive)
-            (jobPane.model as? WebSurfaceModel)?.stop()
+            XCTAssertFalse(model.jobShowingResult)
         }
-    }
-
-    @MainActor func testPartialResumeAndUnrelatedBrowserDoNotActivateApplication() {
-        let model = AppModel()
-        model.left.apply(.url(JobApplicationDemo.jobURL), as: .web)
-        model.right.apply(.text("ALEX MORGAN\nContact details only"), as: .notes)
-        XCTAssertNil(model.jobApplicationPair)
-        model.activateJobApplicationIfRecognized()
-        XCTAssertFalse(model.jobDemoActive)
-
-        model.right.apply(.text(JobApplicationDemo.resume), as: .notes)
-        model.left.apply(.url(URL(string: "https://example.com/jobs")!), as: .web)
-        XCTAssertNil(model.jobApplicationPair)
-        model.activateJobApplicationIfRecognized()
-        XCTAssertFalse(model.jobDemoActive)
+        XCTAssertNil(DemoScenario.named("job-application")!.instruction)
         (model.left.model as? WebSurfaceModel)?.stop()
     }
 
-    @MainActor func testCompletingResumeWithSameHeadlineChangesRecognitionKey() {
+    @MainActor func testChangedResumeInvalidatesCachedResultEvenWithSameTitle() {
         let model = AppModel()
-        model.left.apply(.url(JobApplicationDemo.jobURL), as: .web)
-        model.right.apply(.text("ALEX MORGAN\nPartial résumé"), as: .notes)
-        let partialKey = model.contentKey
-        model.right.apply(.text("\n  " + JobApplicationDemo.resume + "\n"), as: .notes)
-        XCTAssertNotEqual(partialKey, model.contentKey)
-        XCTAssertNotNil(model.jobApplicationPair, "Whitespace changes do not make a different source")
-        (model.left.model as? WebSurfaceModel)?.stop()
-    }
-    @MainActor func testLeavingJobFlowClearsItsInstructionAndPreservesSession() {
-        let model = AppModel()
-        model.apply(DemoScenario.named("job-application")!)
-        let session = model.jobApplication
-        XCTAssertFalse(model.instruction.isEmpty)
-        model.leaveJobApplication()
-        XCTAssertFalse(model.jobDemoActive)
-        XCTAssertTrue(model.instruction.isEmpty)
-        XCTAssertTrue(model.left.isHome && model.right.isHome)
-        XCTAssertTrue(model.jobApplication === session)
-    }
-
-    @MainActor func testChangingJobPairReturnsToGeneralFusion() {
-        let model = AppModel()
-        model.apply(DemoScenario.named("job-application")!)
-        model.left.open(.photo)
-        model.right.open(.photo)
-        model.activateJobApplicationIfRecognized()
-        XCTAssertFalse(model.jobDemoActive)
-        XCTAssertNil(model.jobApplicationPair)
-        XCTAssertTrue(model.instruction.isEmpty, "Photos must not inherit the job instruction")
-        XCTAssertFalse(model.jobCanCombine)
-    }
-
-    @MainActor func testAnotherInstructionOnSamePairUsesGeneralEngine() {
-        let model = AppModel()
-        model.apply(DemoScenario.named("job-application")!)
-        model.instruction = "Create interview practice questions for this role"
-        model.activateJobApplicationIfRecognized()
-        XCTAssertFalse(model.jobDemoActive)
-        XCTAssertEqual(model.instruction, "Create interview practice questions for this role")
-    }
-
-    @MainActor func testOtherTeamRecipesRemainOutsideJobRoute() {
-        for id in ["two-photos", "theme-park", "cover-email"] {
-            let model = AppModel()
-            model.apply(DemoScenario.named("job-application")!)
-            let other = DemoScenario.named(id)!
-            model.apply(other)
-            model.activateJobApplicationIfRecognized()
-            XCTAssertFalse(model.jobDemoActive, id)
-            XCTAssertEqual(model.instruction, other.instruction ?? "", id)
-            XCTAssertNil(model.jobApplicationPair, id)
-            (model.left.model as? WebSurfaceModel)?.stop()
-            (model.right.model as? WebSurfaceModel)?.stop()
+        for kind: SurfaceKind in [.notes, .document] {
+            model.left.apply(.text("Same title\nFirst experience"), as: kind)
+            let old = model.contentKey
+            model.left.apply(.text("Same title\nDifferent experience"), as: kind)
+            XCTAssertNotEqual(old, model.contentKey)
         }
     }
-
-    @MainActor func testResetExitsJobPresentation() {
-        let model = AppModel()
-        model.apply(DemoScenario.named("job-application")!)
-        model.resetPanes()
-        XCTAssertFalse(model.jobDemoActive)
-        XCTAssertTrue(model.instruction.isEmpty)
-    }
-
-    @MainActor func testHomeLinkClearsJobInstructionBeforeManualPairing() {
-        let model = AppModel()
-        model.apply(DemoScenario.named("job-application")!)
-        model.handle(url: URL(string: "fuse://home")!)
-        XCTAssertFalse(model.jobDemoActive)
-        XCTAssertTrue(model.instruction.isEmpty)
-        model.left.apply(.text("A contract"), as: .notes)
-        model.right.apply(.text("A company policy"), as: .notes)
-        model.activateJobApplicationIfRecognized()
-        XCTAssertFalse(model.jobDemoActive)
-    }
-
-    @MainActor func testJobRecipeComposesOnTheSharedStageUntilFusion() {
-        let model = AppModel()
-        model.apply(DemoScenario.named("job-application")!)
-        XCTAssertTrue(model.jobDemoActive)
-        XCTAssertFalse(model.jobShowingResult)
-        model.jobShowingResult = true
-        model.apply(DemoScenario.named("two-photos")!)
-        XCTAssertFalse(model.jobShowingResult)
-        XCTAssertFalse(model.jobDemoActive)
-    }
-
 }

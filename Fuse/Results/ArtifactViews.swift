@@ -1,4 +1,59 @@
 import SwiftUI
+
+struct ApplicationDraftView: View {
+    let application: ApplicationDraft
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Label("Ready for your review", systemImage: "doc.text.magnifyingglass")
+                .font(.headline).foregroundStyle(.blue)
+            VStack(alignment: .leading, spacing: 16) {
+                field("Position", application.role)
+                field("Company", application.company)
+                field("Full name", application.candidate)
+                field("Email", application.email)
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.background, in: RoundedRectangle(cornerRadius: 20))
+
+            DisclosureGroup("Customized résumé") {
+                Text(application.tailoredResume ?? "")
+                    .textSelection(.enabled).padding(.top, 12)
+            }
+            DisclosureGroup("Cover letter") {
+                Text(application.coverLetter).textSelection(.enabled).padding(.top, 12)
+            }
+            DisclosureGroup("What changed") {
+                ForEach(Array(application.edits.enumerated()), id: \.offset) { _, edit in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(edit.original).foregroundStyle(.secondary)
+                        Text(edit.revised)
+                        Text(edit.reason).font(.caption).foregroundStyle(.secondary)
+                    }.padding(.vertical, 10)
+                }
+            }
+            if !application.missingInformation.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Needs your input", systemImage: "person.crop.circle.badge.questionmark")
+                        .font(.headline)
+                    ForEach(Array(application.missingInformation.enumerated()), id: \.offset) { _, item in
+                        Text("• " + item)
+                    }
+                }.padding(16).background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+            }
+            Text("Prepared from your two inputs using OpenAI. Review the wording and facts before sharing. This draft has not been submitted to the employer.")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
+    }
+
+    private func field(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(value.isEmpty ? "Add this information" : value).textSelection(.enabled)
+        }
+    }
+}
 import UIKit
 
 // MARK: - Email

@@ -49,11 +49,11 @@ struct DemoScenario: Identifiable {
         DemoScenario(
             id: "job-application",
             title: "Apply with a fold",
-            subtitle: "Job + résumé → demo application receipt",
+            subtitle: "Job + résumé → tailored application draft",
             symbol: "briefcase.fill",
             left: .init(kind: .web, preset: .url(JobApplicationDemo.jobURL)),
             right: .notes(JobApplicationDemo.resume),
-            instruction: "Tailor this fictional résumé to Bright Labs and submit to the demo employer inbox."
+            instruction: nil
         ),
         DemoScenario(
             id: "theme-park",

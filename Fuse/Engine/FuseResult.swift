@@ -66,6 +66,7 @@ struct InputSummary: Codable, Hashable {
 // MARK: - Artifacts
 
 enum FuseArtifact: Codable, Hashable {
+    case application(ApplicationDraft)
     case markdown(String)
     case itinerary(Itinerary)
     case event(CalendarEventArtifact)
@@ -82,6 +83,7 @@ enum FuseArtifact: Codable, Hashable {
     /// Wire name used in JSON (`"type"`).
     var typeName: String {
         switch self {
+        case .application: "application"
         case .markdown: "markdown"
         case .itinerary: "itinerary"
         case .event: "event"
@@ -99,6 +101,7 @@ enum FuseArtifact: Codable, Hashable {
 
     var symbol: String {
         switch self {
+        case .application: "briefcase"
         case .markdown: "text.alignleft"
         case .itinerary: "map"
         case .event: "calendar.badge.plus"
@@ -121,6 +124,8 @@ enum FuseArtifact: Codable, Hashable {
         let type = (try c.decodeIfPresent(String.self, forKey: .type) ?? "markdown").lowercased()
         let single = try decoder.singleValueContainer()
         switch type {
+        case "application":
+            self = .application(try single.decode(ApplicationDraft.self))
         case "itinerary", "travel", "trip":
             self = .itinerary(try single.decode(Itinerary.self))
         case "event", "calendar", "calendar_event":
@@ -154,6 +159,7 @@ enum FuseArtifact: Codable, Hashable {
         try c.encode(typeName, forKey: .type)
         var single = encoder.singleValueContainer()
         switch self {
+        case .application(let v): try single.encode(v)
         case .markdown(let s): try MarkdownBox(markdown: s).encode(to: encoder)
         case .itinerary(let v): try single.encode(v)
         case .event(let v): try single.encode(v)
@@ -189,6 +195,75 @@ enum FuseArtifact: Codable, Hashable {
 }
 
 // MARK: Itinerary
+
+/// Shared-engine application artifact. Source text is attached by the engine, never trusted from AI.
+struct ApplicationDraft: Codable, Hashable {
+    struct Edit: Codable, Hashable {
+        var original: String
+        var revised: String
+        var reason: String
+    }
+    var company: String
+    var role: String
+    var candidate: String
+    var email: String
+    var resumeSide: String
+    var edits: [Edit]
+    var coverLetter: String
+    var missingInformation: [String]
+    var sourceResume: String? = nil
+    var tailoredResume: String? = nil
+
+    func grounded(left: SurfaceSnapshot, right: SurfaceSnapshot) throws -> Self {
+        guard ["left", "right"].contains(resumeSide) else { throw invalid }
+        let resume = resumeSide == "left" ? left.text : right.text
+        let job = resumeSide == "left" ? right.text : left.text
+        guard resume.count >= 80, job.count >= 80,
+              !company.isEmpty, !role.isEmpty,
+              job.localizedCaseInsensitiveContains(company), job.localizedCaseInsensitiveContains(role),
+              candidate.isEmpty || resume.localizedCaseInsensitiveContains(candidate),
+              email.isEmpty || resume.localizedCaseInsensitiveContains(email),
+              !edits.isEmpty, edits.count <= 6, coverLetter.count >= 80,
+              coverLetter.count <= 8000, missingInformation.count <= 20 else { throw invalid }
+        var output = resume
+        var used: [String] = []
+        for edit in edits {
+            guard !edit.original.isEmpty, !edit.revised.isEmpty,
+                  edit.revised.count <= 2000,
+                  resume.components(separatedBy: edit.original).count == 2,
+                  !used.contains(where: { $0.contains(edit.original) || edit.original.contains($0) }),
+                  Self.numbers(edit.original) == Self.numbers(edit.revised),
+                  let range = output.range(of: edit.original) else { throw invalid }
+            output.replaceSubrange(range, with: edit.revised)
+            used.append(edit.original)
+        }
+        guard Set(Self.numbers(coverLetter)).isSubset(of: Set(Self.numbers(resume))) else { throw invalid }
+        var result = self
+        result.sourceResume = resume
+        result.tailoredResume = output
+        if candidate.isEmpty { result.missingInformation.append("Add your full name.") }
+        if email.isEmpty { result.missingInformation.append("Add your email address.") }
+        return result
+    }
+
+    private var invalid: OpenAIClient.ClientError {
+        .malformed("The application draft could not be verified against both inputs. Use a readable job listing and résumé, then try again.")
+    }
+
+    private static func numbers(_ text: String) -> [String] {
+        let regex = try! NSRegularExpression(pattern: #"\d+(?:[.,]\d+)?%?"#)
+        return regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap {
+            Range($0.range, in: text).map { String(text[$0]) }
+        }.sorted()
+    }
+
+    var exportText: String {
+        ["Application draft: \(role) at \(company)", "Prepared for \(candidate)", email,
+         "Résumé\n\(tailoredResume ?? "")", "Cover letter\n\(coverLetter)",
+         "Needs your review\n\(missingInformation.joined(separator: "\n"))",
+         "Prepared in FUSE. Not submitted."].joined(separator: "\n\n")
+    }
+}
 
 struct Itinerary: Codable, Hashable {
     struct Stop: Codable, Hashable, Identifiable {

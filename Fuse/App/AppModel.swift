@@ -37,7 +37,6 @@ final class AppModel {
     var jobSceneActive = false
     var jobWorkspaceVisible = false
     var jobCaptureInProgress = false
-    var jobFoldGate = JobApplicationFoldGate()
     var jobCaptureTask: Task<Void, Never>?
 
     // Hinge
@@ -95,7 +94,13 @@ final class AppModel {
     var contentKey: String {
         let leftPhotoRevision = (left.model as? PhotoSurfaceModel)?.contentRevision ?? 0
         let rightPhotoRevision = (right.model as? PhotoSurfaceModel)?.contentRevision ?? 0
-        return "\(left.kind.rawValue)|\(left.isHome)|\(left.model.hasContent)|\(left.model.headline)|\(leftPhotoRevision)|\(right.kind.rawValue)|\(right.isHome)|\(right.model.hasContent)|\(right.model.headline)|\(rightPhotoRevision)|jobPair:\(jobApplicationPair != nil)"
+        func revision(_ pane: Pane) -> String {
+            if let notes = pane.model as? NotesSurfaceModel { return String(notes.text.hashValue) }
+            if let file = pane.model as? DocumentSurfaceModel { return String(file.contentRevision) }
+            if let web = pane.model as? WebSurfaceModel { return "\(web.currentURL?.absoluteString ?? "")|\(web.isLoading)" }
+            return ""
+        }
+        return "\(left.kind.rawValue)|\(left.isHome)|\(left.model.hasContent)|\(left.model.headline)|\(leftPhotoRevision)|\(revision(left))|\(right.kind.rawValue)|\(right.isHome)|\(right.model.hasContent)|\(right.model.headline)|\(rightPhotoRevision)|\(revision(right))"
     }
 
     /// What the fold will do if the user doesn't say otherwise.
@@ -111,11 +116,6 @@ final class AppModel {
     }
 
     func schedulePreview() {
-        activateJobApplicationIfRecognized()
-        if jobDemoActive {
-            previewTask?.cancel(); suggestions = []; isPreviewing = false
-            return
-        }
         let key = contentKey
         guard key != lastPreviewKey else { return }
         lastPreviewKey = key
@@ -162,9 +162,6 @@ final class AppModel {
     // MARK: Hinge
 
     func handleHinge(old: DeviceHingeContext, new: DeviceHingeContext) {
-        // Resolve a freshly staged sample before routing this event; activation can use
-        // the previously observed open hinge to arm the dedicated close gate.
-        activateJobApplicationIfRecognized()
         hinge = new.hinge
         guard let h = new.hinge else { return }
         let deg = h.angle.degrees
@@ -172,23 +169,6 @@ final class AppModel {
         lastHingeDegrees = deg
         let closing = deg < previous - 0.5          // moving toward closed
         let opening = deg > previous + 0.5          // moving toward open
-
-        // The application flow consumes an unprepared close and requires a fresh open.
-        // Keep this gate separate from the generic fusion motion/recipe cache.
-        if jobDemoActive {
-            if old.hinge?.status != h.status {
-                // A real pose change ends any manual simulator preview override.
-                // Actual display layout still comes from scene geometry/reserved regions.
-                jobForceInnerPreview = false
-                jobPreviewCover = false
-            }
-            if jobFoldGate.observe(closed: h.status == .closed || deg < 22,
-                                   open: h.status == .fullyOpen || deg > 120,
-                                   eligible: jobCanCombine) {
-                startJobApplication(trigger: .fold)
-            }
-            return
-        }
 
         // The melt follows the closing motion only. Opening always relaxes the stage.
         if debugFold == nil {
@@ -254,8 +234,6 @@ final class AppModel {
     }
 
     func fuse(trigger: FuseTrigger) {
-        activateJobApplicationIfRecognized()
-        if jobDemoActive { startJobApplication(trigger: trigger); return }
         guard phase != .fusing else { return }
         lastTrigger = trigger
         let key = contentKey + "|" + instruction.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -398,18 +376,9 @@ final class AppModel {
 
     func apply(_ scenario: DemoScenario) {
         guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
-        if jobDemoActive && scenario.id != "job-application" { exitJobApplicationWorkspace() }
-        jobDemoActive = scenario.id == "job-application"
+        if jobDemoActive { exitJobApplicationWorkspace() }
+        jobDemoActive = false
         jobShowingResult = false
-        if jobDemoActive {
-            fuseTask?.cancel(); previewTask?.cancel()
-            FloatingOrb.shared.dismiss()
-            if case .failed = jobApplication.phase, !jobApplication.canRetry { jobApplication.reset() }
-            jobPreviewCover = false; jobForceInnerPreview = false
-            jobFoldGate = JobApplicationFoldGate()
-            // The workspace is already visible and observed open when switching recipes.
-            if hinge?.status == .fullyOpen { _ = jobFoldGate.observe(closed: false, open: true, eligible: false) }
-        }
 
         dismissResult()
         left.apply(scenario.left.preset, as: scenario.left.kind)
