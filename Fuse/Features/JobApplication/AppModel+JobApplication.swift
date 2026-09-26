@@ -35,7 +35,8 @@ extension AppModel {
     /// Clear only this recipe's presentation. Keep its saved application/receipt available.
     func exitJobApplicationWorkspace(clearInstruction: Bool = false) {
         guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
-        jobDemoActive = false; jobPreviewCover = false; jobForceInnerPreview = false
+        jobDemoActive = false; jobShowingResult = false
+        jobPreviewCover = false; jobForceInnerPreview = false
         jobFoldGate = JobApplicationFoldGate()
         if clearInstruction || instruction == DemoScenario.named("job-application")?.instruction {
             instruction = ""
@@ -64,12 +65,18 @@ extension AppModel {
 
     var jobCanCombine: Bool {
         jobDemoActive && jobSceneActive && jobWorkspaceVisible && !jobCaptureInProgress
-            && jobApplication.phase == .ready && !showSettings && !showScenarios
+            && (jobApplication.phase == .ready || jobApplication.hasSubmitted) && !showSettings && !showScenarios
             && !showInstructionEditor && !showHistory && !showCommunity && !showPaywall
             && jobApplicationPair != nil && jobApplicationPair?.job.isLoading == false
     }
 
     func startJobApplication(trigger: FuseTrigger) {
+        // Reopening an already completed pair shows its artifact without sending again.
+        if jobDemoActive && jobSceneActive && jobWorkspaceVisible && jobApplicationPair != nil
+            && jobApplication.hasSubmitted {
+            jobShowingResult = true
+            return
+        }
         guard jobCanCombine else { return }
         // Only the demo employer is an automatic destination. Never infer an application URL.
         guard let pair = jobApplicationPair else {
@@ -77,6 +84,7 @@ extension AppModel {
             return
         }
         jobCaptureInProgress = true
+        jobShowingResult = true
         lastTrigger = trigger
         Haptics.heavy()
         jobCaptureTask = Task { [weak self] in

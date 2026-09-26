@@ -8,9 +8,9 @@ This is the **job-application use case** inside the existing FUSE application. I
 2. Build/run the existing **Fuse** scheme on iPhone Duo using Xcode 27.1. Configure the existing OpenAI key in Settings if needed.
 3. Open Scenarios and choose **Apply with a fold**, or open `fuse://demo?id=job-application`.
 4. The left inner pane loads the actual local Bright Labs job page in FUSE's browser surface; the right inner pane holds Alex Morgan's fictional résumé in FUSE's Notes surface.
-5. The action strip discloses the destination and AI processing. Fully close the phone, or use **Apply to demo job**. **Preview closed** explicitly rehearses the compact outer-screen presentation when the simulator does not deliver a physical fold/display transition.
+5. Keep the normal shared two-app stage: Browser on one side and Notes on the other. The shared instruction control describes the action. Fully close the phone, or use the standard FUSE interaction. There is no separate job composing workspace.
 6. AI tailors evidence-backed passages and writes a cover letter. FUSE submits the documents to the local employer service. Only a valid server receipt produces **Application received**.
-7. Reopen to inspect the original, submitted résumé, cover letter, and qualifications not established by the source. Open `http://127.0.0.1:8777/applications` to show the employer's independently persisted submission.
+7. The fusion opens one combined application result with populated fields, tailored résumé, cover letter, and receipt. **Back to apps** returns to the same two inputs. Repeating fusion for a completed pair reopens the saved result without submitting again. Open `http://127.0.0.1:8777/applications` to show the employer's independently persisted submission.
 
 ## What this demonstrates
 
@@ -21,9 +21,9 @@ This is the **job-application use case** inside the existing FUSE application. I
 
 ## Display and platform boundary
 
-Open: job on inner-left, résumé on inner-right; outer display unused. Closed: the intended outer presentation shows progress and receipt, subject to the tested simulator lifecycle. Reopened: original and tailored documents use the inner area; outer display unused. Layout uses scene geometry and division regions; hinge state is an action trigger.
+Open: job on inner-left, résumé on inner-right; outer display unused. Closed: the intended outer presentation shows progress and receipt, subject to the tested simulator lifecycle. Reopened: one combined application result uses the inner area; outer display unused. Hinge state is an action trigger.
 
-These are browser and Notes **surfaces inside FUSE**, not embedded copies of the system Safari and Apple Notes apps. This use case cannot independently read another app's private document or guarantee background hinge events. The team's external capture mechanisms can later supply job/résumé inputs through an explicit adapter. Do not describe the rehearsal button as a physical fold, or a local receipt as a real employer application.
+These are browser and Notes **surfaces inside FUSE**, not embedded copies of the system Safari and Apple Notes apps. This use case cannot independently read another app's private document or guarantee background hinge events. The team's external capture mechanisms can later supply job/résumé inputs through an explicit adapter. Do not describe a button trigger as a physical fold, or a local receipt as a real employer application.
 
 ## Code boundaries for merging
 
@@ -65,3 +65,7 @@ Validation: 66 native tests pass, including both pane orders, incomplete-pair re
 Job applications are an isolated recipe, not the global fold behavior. The dedicated path requires the complete supported job/résumé pair and its default action. Other inputs or an explicit different instruction return to the general AI engine. Leaving, resetting, choosing another scenario, and screenshot intake clear the job instruction and preview state; the saved application remains intact. Foreground exit restores the shared floating control.
 
 Regression checks cover leaving job mode for photos, itinerary and cover-email recipes, another instruction on the same pair, home/manual pairing, and reset.
+
+## Shared-stage update — September 26
+
+Removed the dedicated job composing interface. The job recipe now uses the same StageView and surface controls as every other pair, then displays a single result after fusion. Verified Browser and Notes on the installed Duo build through simulator accessibility. All 73 native tests passed; the final fold test rerun also passed. Physical fold-to-outer display handoff remains unverified by automated simulator controls.

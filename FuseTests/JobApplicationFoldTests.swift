@@ -43,6 +43,7 @@ final class JobApplicationFoldTests: XCTestCase {
             XCTAssertTrue(model.jobApplicationPair?.resume === resumePane.model)
             model.schedulePreview()
             XCTAssertTrue(model.jobDemoActive)
+            XCTAssertFalse(model.jobShowingResult, "Recognizing a pair must not replace the shared two-app stage")
             XCTAssertFalse(model.isPreviewing)
             XCTAssertTrue(model.suggestions.isEmpty)
             XCTAssertTrue(model.jobApplication === session, "Recognition preserves the existing application session")
@@ -143,6 +144,17 @@ final class JobApplicationFoldTests: XCTestCase {
         model.left.apply(.text("A contract"), as: .notes)
         model.right.apply(.text("A company policy"), as: .notes)
         model.activateJobApplicationIfRecognized()
+        XCTAssertFalse(model.jobDemoActive)
+    }
+
+    @MainActor func testJobRecipeComposesOnTheSharedStageUntilFusion() {
+        let model = AppModel()
+        model.apply(DemoScenario.named("job-application")!)
+        XCTAssertTrue(model.jobDemoActive)
+        XCTAssertFalse(model.jobShowingResult)
+        model.jobShowingResult = true
+        model.apply(DemoScenario.named("two-photos")!)
+        XCTAssertFalse(model.jobShowingResult)
         XCTAssertFalse(model.jobDemoActive)
     }
 

@@ -31,6 +31,7 @@ final class AppModel {
     // Job applications are an isolated use case; other team recipes keep their existing route.
     var jobApplication = JobApplicationSession()
     var jobDemoActive = false
+    var jobShowingResult = false
     var jobPreviewCover = false
     var jobForceInnerPreview = false
     var jobSceneActive = false
@@ -399,6 +400,7 @@ final class AppModel {
         guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
         if jobDemoActive && scenario.id != "job-application" { exitJobApplicationWorkspace() }
         jobDemoActive = scenario.id == "job-application"
+        jobShowingResult = false
         if jobDemoActive {
             fuseTask?.cancel(); previewTask?.cancel()
             FloatingOrb.shared.dismiss()

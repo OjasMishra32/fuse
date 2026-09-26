@@ -36,18 +36,18 @@ struct JobApplicationView: View {
     private var navigationBar: some View {
         HStack(spacing: 12) {
             Button(action: onBack) {
-                Label("Other demos", systemImage: "chevron.left")
+                Label("Back to apps", systemImage: "chevron.left")
                     .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
             }
             .disabled(session.isBusy)
-            .accessibilityLabel("Return to other demos")
+            .accessibilityLabel("Return to the two apps")
             .accessibilityIdentifier("jobApplicationBack")
             if session.hasSubmitted, let onRestart {
                 Button("Start again", action: onRestart)
                     .font(.caption.weight(.semibold)).frame(minHeight: 44)
             }
             Spacer(minLength: 4)
-            Label("FUSE APPLY", systemImage: "sparkles")
+            Label("FUSE", systemImage: "sparkles")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(Theme.cyan)
                 .padding(.horizontal, 12).padding(.vertical, 8)
