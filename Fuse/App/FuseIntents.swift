@@ -58,6 +58,66 @@ struct FuseScreenshotIntent: AppIntent {
     }
 }
 
+// MARK: - Background fuse (native snippet, Fuse never comes to the front)
+
+/// How the two apps were arranged in the capture, as a Shortcuts-visible enum.
+enum FuseLayoutOption: String, AppEnum {
+    case auto
+    case leftRight
+    case topBottom
+
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Layout"
+    static let caseDisplayRepresentations: [FuseLayoutOption: DisplayRepresentation] = [
+        .auto: "Automatic",
+        .leftRight: "Left / Right",
+        .topBottom: "Top / Bottom"
+    ]
+
+    var layout: FuseLayout {
+        switch self {
+        case .auto: .auto
+        case .leftRight: .leftRight
+        case .topBottom: .topBottom
+        }
+    }
+}
+
+/// "Take Screenshot" → (optional "Dictate Text") → "Fuse Screens". Runs in the background and
+/// returns a native result card; the two source apps stay exactly where they were.
+struct FuseScreensIntent: AppIntent {
+    static let title: LocalizedStringResource = "Fuse Screens"
+    static let description = IntentDescription("Fuse the two apps in a screenshot without opening Fuse. Pass the screenshot and, optionally, what you want done with it.")
+    static let supportedModes: IntentModes = .background
+
+    @Parameter(title: "Screenshot", supportedContentTypes: [.image])
+    var screenshot: IntentFile
+
+    @Parameter(title: "Instruction")
+    var instruction: String?
+
+    @Parameter(title: "Layout", default: .auto)
+    var layout: FuseLayoutOption
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Fuse \(\.$screenshot)") {
+            \.$instruction
+            \.$layout
+        }
+    }
+
+    func perform() async throws -> some IntentResult & ReturnsValue<String> & ShowsSnippetView {
+        let data: Data
+        if let loaded = try? await screenshot.data(contentType: .image), !loaded.isEmpty {
+            data = loaded
+        } else {
+            data = screenshot.data
+        }
+        let image = try ScreenshotInput.decode(data)
+        let result = try await BackgroundFuseService().run(image: image, instruction: instruction, layout: layout.layout)
+        return .result(value: result.plainText, view: FuseSnippetView(result: result))
+    }
+}
+
 struct ClearFuseIntent: AppIntent {
     static let title: LocalizedStringResource = "Clear Fuse"
     static let description = IntentDescription("Clear both screens.")
@@ -83,6 +143,12 @@ struct FuseShortcuts: AppShortcutsProvider {
             phrases: ["Fuse my screen in \(.applicationName)", "\(.applicationName) what's on my screen"],
             shortTitle: "Fuse Screenshot",
             systemImageName: "rectangle.split.2x1"
+        )
+        AppShortcut(
+            intent: FuseScreensIntent(),
+            phrases: ["Fuse my screens in \(.applicationName)", "\(.applicationName) both apps on my screen"],
+            shortTitle: "Fuse Screens",
+            systemImageName: "rectangle.split.2x1.fill"
         )
         AppShortcut(
             intent: VoiceFuseIntent(),

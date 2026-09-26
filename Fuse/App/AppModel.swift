@@ -318,20 +318,26 @@ final class AppModel {
     /// Everything that arrives from outside the app, in priority order: explicit hand-offs
     /// (share sheet, Safari popup, intents), then the pages the Safari extension saw the user
     /// read, then the clipboard. Called whenever Fuse comes to the front.
-    func importSharedItems() {
+    /// Returns true when an explicit screenshot from the inbox started a fuse, so callers must
+    /// not start a second one from the Photos fallback.
+    @discardableResult
+    func importSharedItems() -> Bool {
         let command = FuseCommandFlag.take()
-        importInbox()
+        let consumedScreenshot = importInbox()
         if left.isHome && right.isHome {
             stageRecentPages()
             offerClipboard()
         }
-        if command == "fuse" {
+        if consumedScreenshot {
+            // The screenshot fuse is already running; nothing else may start a second one.
+        } else if command == "fuse" {
             if readiness > 0 { fuse(trigger: .intent) } else { flash("Read something in Safari or copy something first") }
         } else if isClosed && readiness == 2 && phase == .compose && lastStagedFromRecents {
             // Opened from the cover with the phone already folded: the fold is the command.
             fuse(trigger: .fold)
         }
         lastStagedFromRecents = false
+        return consumedScreenshot
     }
 
     private var lastStagedFromRecents = false
@@ -373,13 +379,17 @@ final class AppModel {
         }
     }
 
-    private func importInbox() {
+    /// Drain the inbox. Intake completes first; at most one screenshot fuse starts afterwards.
+    /// Returns true when a screenshot fuse was started.
+    private func importInbox() -> Bool {
         let items = SharedInbox.drain()
-        guard !items.isEmpty else { return }
+        guard !items.isEmpty else { return false }
+        var screenshot: UIImage?
         for item in items {
             if item.kind == .screen {
+                // Keep the newest explicit screenshot; older ones in the same batch are superseded.
                 if let url = SharedInbox.fileURL(for: item), let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
-                    fuseScreenshot(image)
+                    screenshot = image
                 }
                 continue
             }
@@ -402,20 +412,28 @@ final class AppModel {
         }
         if phase != .compose { dismissResult() }
         Haptics.medium()
+        if let screenshot {
+            // Intake is complete; now start exactly one fuse for the explicit screenshot.
+            fuseScreenshot(screenshot)
+            return true
+        }
         let last = items[items.count - 1]
         flash("\(last.title) → \(last.side == .left ? "left" : "right") screen")
+        return false
     }
 
     // MARK: Fuse anywhere — a screenshot of two apps side by side
 
     /// Split a screenshot of the open phone along the fold and fuse the two apps that were on it.
     /// This is how Fuse works from *any* app: Back Tap → Shortcut (Take Screenshot → Fuse Screenshot).
-    func fuseScreenshot(_ image: UIImage) {
+    /// `instruction` defaults to whatever is already typed/spoken; pass a value to replace it.
+    func fuseScreenshot(_ image: UIImage, instruction: String? = nil) {
+        let kept = instruction ?? self.instruction
         let (a, b) = Self.splitAtFold(image)
-        if phase != .compose { dismissResult() }
+        if phase != .compose { dismissResult() }   // clears `instruction`; restored below
         left.apply(.image(a), as: .photo)
         right.apply(.image(b), as: .photo)
-        instruction = ""
+        self.instruction = kept
         screenshotMode = true
         Haptics.medium()
         fuse(trigger: .intent)
@@ -425,14 +443,8 @@ final class AppModel {
     var screenshotMode = false
 
     static func splitAtFold(_ image: UIImage) -> (UIImage, UIImage) {
-        guard let cg = image.cgImage else { return (image, image) }
-        let w = cg.width, h = cg.height
-        let vertical = w >= h   // fold runs top→bottom when the capture is wider than tall
-        let first = vertical ? CGRect(x: 0, y: 0, width: w / 2, height: h) : CGRect(x: 0, y: 0, width: w, height: h / 2)
-        let second = vertical ? CGRect(x: w / 2, y: 0, width: w - w / 2, height: h) : CGRect(x: 0, y: h / 2, width: w, height: h - h / 2)
-        let a = cg.cropping(to: first).map { UIImage(cgImage: $0, scale: image.scale, orientation: image.imageOrientation) } ?? image
-        let b = cg.cropping(to: second).map { UIImage(cgImage: $0, scale: image.scale, orientation: image.imageOrientation) } ?? image
-        return (a, b)
+        guard let crops = try? ScreenshotInput.crop(image, layout: .auto) else { return (image, image) }
+        return (crops.first, crops.second)
     }
 
     /// Fallback for the intent when no screenshot was passed: the newest screenshot in Photos (last 3 minutes).
@@ -490,8 +502,9 @@ final class AppModel {
         case .fuse:
             if readiness == 0 { Task { await fuseLatestScreenshot() } } else { fuse(trigger: .intent) }
         case .fuseScreenshot:
-            importSharedItems()
-            if !screenshotMode { Task { await fuseLatestScreenshot() } }
+            // An explicit screenshot from the intent wins; only fall back to Photos when none arrived.
+            let consumed = importSharedItems()
+            if !consumed && !screenshotMode { Task { await fuseLatestScreenshot() } }
         case .listen: NotificationCenter.default.post(name: .fuseStartListening, object: nil)
         case .reset: resetPanes()
         case .demo(let id):

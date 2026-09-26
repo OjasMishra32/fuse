@@ -2,6 +2,8 @@
 
 Prepared September 26, 2026. Code reviewed at [`a7d65d2`](https://github.com/OjasMishra32/fuse/tree/a7d65d287c19fcbd96ebf7780e2a203f96efa84e), including the new screenshot intent, Control Center control, Safari extension, and deep links. This is a plan, not an implemented or simulator-tested feature. The review environment is Windows; runtime checks require a Mac with Xcode 27.1 and the Duo runtime.
 
+**Status (September 26, 2026, later the same day):** the Gate A–C *code* from section 5 is implemented in the main app target and builds with Xcode 27.1 against the iPhone Duo simulator: `FuseScreensIntent` (background mode, native snippet), `ScreenshotInput`, `FuseJobStore`, `BackgroundFuseService`, `FuseSnippetView`, the `importInbox()` double-fire fix, and unit tests in `FuseTests/BackgroundFuseTests.swift`. Runtime behavior on the Duo simulator (native card over the app pair, no foreground scene, real capture contents) is **NOT TESTED**; every runtime gate below still starts at NOT TESTED. The snippet has no buttons yet (Gate B's interactive `SnippetIntent` is not implemented).
+
 ## 1. The requirement
 
 Two independent iOS apps are already open side by side. The user invokes Fuse through a system shortcut, optionally speaks an instruction, and receives a native system card. Fuse's main interface never becomes foreground during that operation. Dismissing the card leaves the original app pair in place.
@@ -106,6 +108,8 @@ The current client allows 120-second request and 180-second resource timeouts. T
 ## 5. Implementation after the gates pass
 
 Keep the first working route in the main app target. Do not add an App Intents extension or move the engine into the widget target just to prove this feature.
+
+Status: core path implemented (`FuseIntents.swift`, `Services/BackgroundFuseService.swift`, `Services/ScreenshotInput.swift`, `Services/FuseJobStore.swift`, `Snippets/FuseSnippetView.swift`, `AppModel.swift` inbox fix); runtime NOT TESTED. Not yet done: `FuseSnippetIntent` (interactive buttons), `OpenAIClient` transport injection, README/demo-script updates.
 
 | File or component | Planned change |
 | --- | --- |
