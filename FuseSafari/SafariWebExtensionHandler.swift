@@ -19,7 +19,18 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         switch kind {
         case "status":
             reply(context, statusPayload())
-        case "fuse":
+        case "fuse", "fold":
+            // "fold": the page saw the phone fold. One fuse per fold; ignore echoes from the other window.
+            if kind == "fold" {
+                let last = SharedInbox.defaults?.double(forKey: "fuse.lastFoldFuseAt") ?? 0
+                let now = Date().timeIntervalSince1970
+                if now - last < 15, let data = SharedInbox.defaults?.data(forKey: SharedInbox.lastBackgroundResultKey),
+                   let cached = try? JSONDecoder().decode(FuseResult.self, from: data) {
+                    reply(context, ["ok": true, "title": cached.title, "summary": cached.summary, "text": cached.artifact.compactText, "recipe": cached.recipe])
+                    return
+                }
+                SharedInbox.defaults?.set(now, forKey: "fuse.lastFoldFuseAt")
+            }
             let instruction = (message["instruction"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             Task { await self.fuse(instruction: instruction, context: context) }
         case "stage":
