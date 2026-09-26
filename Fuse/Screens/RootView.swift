@@ -3,8 +3,8 @@ import SwiftUI
 // MARK: - RootView
 //
 // Picks what the current display shows: the cover (closed), the stage (open, composing),
-// the fusing overlay, or the result. Owns the top bar, the hint toast, all sheets and the
-// command bus from App Intents.
+// the fusing overlay, or the result. Owns the hint toast, all sheets and the command bus
+// from App Intents.
 
 struct RootView: View {
     @Bindable var model: AppModel
@@ -22,24 +22,10 @@ struct RootView: View {
                 CoverView(model: model)
             } else {
                 mainStage
-                if model.anyHome && model.phase == .compose {
-                    topBar.transition(.opacity)
-                }
             }
 
             if let hint = model.hint {
-                Text(hint)
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Theme.margin)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .frame(maxWidth: 360)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, Theme.gutter)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                toast(hint)
             }
 
             if model.showDevPanel && !model.isClosed {
@@ -47,7 +33,6 @@ struct RootView: View {
             }
         }
         .fuseHingeTracking(model)
-        
         .sheet(isPresented: $model.showSettings) { SettingsView(onDismiss: { model.showSettings = false }) }
         .sheet(isPresented: $model.showHistory) {
             HistoryView(onOpen: { result in
@@ -117,7 +102,7 @@ struct RootView: View {
 
             if case .failed(let message) = model.phase {
                 ZStack {
-                    Theme.ink.opacity(0.7).ignoresSafeArea()
+                    Rectangle().fill(.regularMaterial).ignoresSafeArea()
                     FailureCard(message: message, onRetry: { model.refuse() }, onDismiss: { model.dismissResult() })
                 }
                 .transition(.opacity)
@@ -126,29 +111,30 @@ struct RootView: View {
         .animation(Theme.smooth, value: model.phase)
     }
 
-    // MARK: Top bar
+    // MARK: Toast
 
-    private var topBar: some View {
-        HStack {
-            HingeBadge(hinge: model.hinge)
-                .padding(.leading, 4)
-                .contentShape(Rectangle())
-                .onTapGesture(count: 3) {
-                    Haptics.rigid()
-                    withAnimation(Theme.snappy) { model.showDevPanel.toggle() }
-                }
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(Theme.snappy, value: model.anyHome)
+    private func toast(_ hint: String) -> some View {
+        Text(hint)
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(.primary)
+            .lineLimit(2)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, Theme.margin)
+            .padding(.vertical, 12)
+            .glassEffect(.regular, in: .capsule)
+            .frame(maxWidth: 360)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .padding(.horizontal, Theme.gutter)
+            .padding(.bottom, Theme.margin)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .accessibilityAddTraits(.updatesFrequently)
     }
 
-    // MARK: Dev panel (triple-tap the wordmark)
+    // MARK: Dev panel (triple-tap the seam)
 
     private var devPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Eyebrow(text: "Rehearse the fold")
                 Spacer()
@@ -156,31 +142,45 @@ struct RootView: View {
                     model.setDebugFold(nil)
                     withAnimation(Theme.snappy) { model.showDevPanel = false }
                 } label: {
-                    Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.textSecondary)
+                    Image(systemName: "xmark")
+                        .font(.footnote.weight(.semibold))
+                        .frame(width: 28, height: 28)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .controlSize(.small)
+                .accessibilityLabel("Close")
             }
-            HStack(spacing: 10) {
-                Image(systemName: "ipad.landscape").foregroundStyle(Theme.textTertiary)
+            HStack(spacing: 12) {
+                Image(systemName: "ipad.landscape")
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
                 Slider(value: $devFold, in: 0...1)
-                    .tint(Theme.violet)
                     .onChange(of: devFold) { _, value in model.setDebugFold(value) }
-                Image(systemName: "iphone.gen3").foregroundStyle(Theme.textTertiary)
+                    .accessibilityLabel("Fold progress")
+                Image(systemName: "iphone.gen3")
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-            HStack(spacing: 8) {
-                GlassButton(title: "Open", symbol: "arrow.left.and.right") { devFold = 0; model.setDebugFold(0) }
-                GlassButton(title: "Half", symbol: "laptopcomputer") { devFold = 0.55; model.setDebugFold(0.55) }
-                GlassButton(title: "Close → fuse", symbol: "bolt.fill") { devFold = 1; model.setDebugFold(1) }
-                GlassButton(title: "Release", symbol: "hand.raised") { model.setDebugFold(nil) }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    GlassButton(title: "Open", symbol: "arrow.left.and.right") { devFold = 0; model.setDebugFold(0) }
+                    GlassButton(title: "Half", symbol: "laptopcomputer") { devFold = 0.55; model.setDebugFold(0.55) }
+                    GlassButton(title: "Close and Fuse", symbol: "bolt.fill") { devFold = 1; model.setDebugFold(1) }
+                    GlassButton(title: "Release", symbol: "hand.raised") { model.setDebugFold(nil) }
+                }
+                .controlSize(.small)
             }
-            Text("Hinge: \(Int(model.hingeDegrees))°  ·  progress \(String(format: "%.2f", model.foldProgress))  ·  trigger \(model.lastTrigger?.rawValue ?? "none")")
+            Text("Hinge \(Int(model.hingeDegrees))°  ·  progress \(String(format: "%.2f", model.foldProgress))  ·  trigger \(model.lastTrigger?.rawValue ?? "none")")
                 .font(.fuseMono)
                 .foregroundStyle(.secondary)
+                .lineLimit(2)
         }
         .padding(Theme.margin)
-        .frame(width: 420)
+        .frame(maxWidth: 420)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .padding(.horizontal, Theme.gutter)
         .padding(.bottom, Theme.margin)
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
@@ -202,15 +202,17 @@ struct ResultScreen: View {
                         model.dismissResult()
                     } label: {
                         Label("Back", systemImage: "chevron.left")
+                            .lineLimit(1)
                     }
                     .buttonStyle(.glass)
                     .buttonBorderShape(.capsule)
-                    Spacer()
+                    Spacer(minLength: 0)
                     Button {
                         Haptics.tap()
                         model.stage(result, on: .left)
                     } label: {
-                        Label("Keep on left", systemImage: "rectangle.lefthalf.inset.filled")
+                        Label("Keep on Left", systemImage: "rectangle.lefthalf.inset.filled")
+                            .lineLimit(1)
                     }
                     .buttonStyle(.glass)
                     .buttonBorderShape(.capsule)
@@ -218,16 +220,17 @@ struct ResultScreen: View {
                         Haptics.tap()
                         model.stage(result, on: .right)
                     } label: {
-                        Label("Keep on right", systemImage: "rectangle.righthalf.inset.filled")
+                        Label("Keep on Right", systemImage: "rectangle.righthalf.inset.filled")
+                            .lineLimit(1)
                     }
                     .buttonStyle(.glass)
                     .buttonBorderShape(.capsule)
                 }
                 .controlSize(.small)
             }
-            .padding(.horizontal, Theme.gutter)
+            .padding(.horizontal, Theme.margin)
             .padding(.top, 8)
-            .padding(.bottom, 4)
+            .padding(.bottom, 8)
 
             ResultView(
                 result: result,
@@ -252,30 +255,24 @@ struct InstructionEditor: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
-                Eyebrow(text: "What should the fuse do?")
-                    .padding(.leading, Theme.margin)
-                TextField("e.g. Make a one-day plan, or Draft the reply", text: $text, axis: .vertical)
-                    .lineLimit(3...6)
-                    .font(.fuseBody)
-                    .padding(Theme.margin)
-                    .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-                    .focused($focused)
-                Text("Optional. Without an instruction, Fuse infers the most useful result from the relationship between the two screens.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, Theme.margin)
-                Spacer()
+            Form {
+                Section {
+                    TextField("Make a one-day plan, or Draft the reply", text: $text, axis: .vertical)
+                        .lineLimit(3...8)
+                        .focused($focused)
+                } header: {
+                    Text("What should the fuse do?")
+                } footer: {
+                    Text("Optional. Without an instruction, Fuse infers the most useful result from the relationship between the two screens.")
+                }
             }
-            .padding(.horizontal, Theme.gutter)
-            .padding(.top, Theme.gutter)
-            .background(Theme.grouped)
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Instruction")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Set") {
+                    Button("Done") {
                         model.instruction = text.trimmingCharacters(in: .whitespacesAndNewlines)
                         model.foldPrompt = !model.instruction.isEmpty && model.readiness > 0
                         if model.foldPrompt { Haptics.medium() }
@@ -286,11 +283,9 @@ struct InstructionEditor: View {
             }
             .onAppear { text = model.instruction; focused = true }
         }
-        .presentationDetents([.medium])
-        
+        .presentationDetents([.medium, .large])
     }
 }
-
 
 // MARK: - Scenarios (demo content, presented like an app)
 
@@ -319,7 +314,7 @@ struct ScenariosSheet: View {
                                         Text(scenario.subtitle)
                                             .font(.footnote)
                                             .foregroundStyle(.secondary)
-                                            .lineLimit(1)
+                                            .lineLimit(2)
                                     }
                                     Spacer(minLength: 0)
                                 }
@@ -341,7 +336,7 @@ struct ScenariosSheet: View {
                         dismiss()
                         model.resetPanes()
                     } label: {
-                        Label("Clear both halves", systemImage: "xmark.circle")
+                        Label("Clear Both Halves", systemImage: "xmark.circle")
                     }
                 }
             }

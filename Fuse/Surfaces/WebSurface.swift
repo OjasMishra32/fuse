@@ -354,11 +354,29 @@ private final class WebNavigationCoordinator: NSObject, WKNavigationDelegate, WK
 
 // MARK: - Representable
 
+/// Hosts the model's web view. The Safari-style bar floats over the page, so the scroll view
+/// gets a matching top inset; the status bar inset comes from UIKit's own safe area.
 private struct WebViewContainer: UIViewRepresentable {
     let webView: WKWebView
+    var topInset: CGFloat
 
-    func makeUIView(context: Context) -> WKWebView { webView }
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    func makeUIView(context: Context) -> WKWebView {
+        apply(topInset, to: webView)
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        apply(topInset, to: uiView)
+    }
+
+    private func apply(_ inset: CGFloat, to view: WKWebView) {
+        let scroll = view.scrollView
+        guard scroll.contentInset.top != inset else { return }
+        let atTop = scroll.contentOffset.y <= -scroll.adjustedContentInset.top + 1
+        scroll.contentInset.top = inset
+        scroll.verticalScrollIndicatorInsets.top = inset
+        if atTop { scroll.contentOffset.y = -scroll.adjustedContentInset.top }
+    }
 }
 
 // MARK: - View
@@ -366,31 +384,32 @@ private struct WebViewContainer: UIViewRepresentable {
 struct WebSurfaceView: View {
     @Bindable var model: WebSurfaceModel
     @FocusState private var addressFocused: Bool
+    @State private var barHeight: CGFloat = 64
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .top) {
+            Theme.ink.ignoresSafeArea()
+
+            if model.hasContent {
+                WebViewContainer(webView: model.webView, topInset: barHeight)
+                    .ignoresSafeArea()
+            } else {
+                emptyState
+                    .padding(.top, barHeight)
+            }
+
             addressBar
                 .padding(.horizontal, 10)
-                .padding(.top, 6)
-                .padding(.bottom, 6)
-
-            ZStack {
-                Theme.ink2
-
-                if model.hasContent {
-                    WebViewContainer(webView: model.webView)
-                } else {
-                    emptyState
-                }
-
-                if let error = model.loadError, !model.isLoading {
-                    errorBanner(error)
-                }
+                .padding(.top, 10)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height + 18 } action: { barHeight = $0 }
+        }
+        .overlay(alignment: .bottom) {
+            if let error = model.loadError, !model.isLoading {
+                errorBanner(error)
             }
-            .ignoresSafeArea(edges: [.bottom, .horizontal])
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.ink.ignoresSafeArea())
+        .animation(Theme.snappy, value: model.loadError)
         .onChange(of: addressFocused) { _, focused in
             model.isEditingAddress = focused
             if !focused, let url = model.currentURL, model.hasContent {
@@ -399,108 +418,110 @@ struct WebSurfaceView: View {
         }
     }
 
-    // MARK: Address bar
+    // MARK: Address bar: back, forward, address and reload in one glass capsule
 
     private var addressBar: some View {
-        HStack(spacing: 6) {
-            GlassIconButton(symbol: "chevron.left", size: 32, tint: model.canGoBack ? Theme.textPrimary : Theme.textTertiary) {
-                Haptics.tap()
-                model.goBack()
+        HStack(spacing: 0) {
+            if model.canGoBack || model.canGoForward {
+                navButton("chevron.left", label: "Back", enabled: model.canGoBack) { model.goBack() }
+                navButton("chevron.right", label: "Forward", enabled: model.canGoForward) { model.goForward() }
             }
-            .disabled(!model.canGoBack)
 
-            GlassIconButton(symbol: "chevron.right", size: 32, tint: model.canGoForward ? Theme.textPrimary : Theme.textTertiary) {
-                Haptics.tap()
-                model.goForward()
+            HStack(spacing: 6) {
+                Image(systemName: leadingSymbol)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+
+                TextField("Search or enter website", text: $model.addressText)
+                    .font(.subheadline)
+                    .keyboardType(.webSearch)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.go)
+                    .focused($addressFocused)
+                    .onSubmit {
+                        Haptics.tap()
+                        addressFocused = false
+                        model.go()
+                    }
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
-            .disabled(!model.canGoForward)
+            .padding(.leading, (model.canGoBack || model.canGoForward) ? 4 : 14)
 
-            addressField
+            trailingButton
         }
-    }
-
-    private var addressField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: leadingSymbol)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(model.currentURL?.scheme == "https" ? Theme.mint : Theme.textTertiary)
-
-            TextField("Search or enter URL", text: $model.addressText)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Theme.textPrimary)
-                .tint(Theme.cyan)
-                .keyboardType(.webSearch)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .submitLabel(.go)
-                .focused($addressFocused)
-                .onSubmit {
-                    Haptics.tap()
-                    addressFocused = false
-                    model.go()
-                }
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            if addressFocused && !model.addressText.isEmpty {
-                Button {
-                    model.addressText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.textTertiary)
-                }
-                .buttonStyle(.plain)
-            } else if model.isLoading {
-                Button {
-                    model.stop()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
-                }
-                .buttonStyle(.plain)
-            } else if model.hasContent {
-                Button {
-                    Haptics.tap()
-                    model.reload()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    Haptics.tap()
-                    addressFocused = false
-                    model.go()
-                } label: {
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(model.addressText.isEmpty ? Theme.textTertiary : Theme.cyan)
-                }
-                .buttonStyle(.plain)
-                .disabled(model.addressText.isEmpty)
-            }
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 34)
-        .frame(maxWidth: .infinity)
+        .frame(minHeight: 44)
         .glassEffect(.regular, in: .capsule)
         .overlay(alignment: .bottom) {
             if model.isLoading {
                 GeometryReader { geo in
                     Capsule()
-                        .fill(Theme.energy)
-                        .frame(width: max(8, geo.size.width * CGFloat(min(max(model.progress, 0.04), 1))), height: 2)
+                        .fill(Color.accentColor)
+                        .frame(width: max(8, (geo.size.width - 28) * CGFloat(min(max(model.progress, 0.04), 1))), height: 2)
+                        .padding(.leading, 14)
                         .animation(Theme.smooth, value: model.progress)
                 }
                 .frame(height: 2)
-                .padding(.horizontal, 14)
-                .offset(y: -3)
+                .padding(.bottom, 4)
+                .accessibilityHidden(true)
             }
         }
+        .animation(Theme.snappy, value: model.canGoBack || model.canGoForward)
+    }
+
+    private func navButton(_ symbol: String, label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(enabled ? .primary : .tertiary)
+                .frame(width: 36, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel(label)
+    }
+
+    @ViewBuilder
+    private var trailingButton: some View {
+        Group {
+            if addressFocused && !model.addressText.isEmpty {
+                iconButton("xmark.circle.fill", label: "Clear text") { model.addressText = "" }
+                    .foregroundStyle(.tertiary)
+            } else if model.isLoading {
+                iconButton("xmark", label: "Stop loading") { model.stop() }
+            } else if model.hasContent {
+                iconButton("arrow.clockwise", label: "Reload") {
+                    Haptics.tap()
+                    model.reload()
+                }
+            } else {
+                iconButton("arrow.right.circle.fill", label: "Go") {
+                    Haptics.tap()
+                    addressFocused = false
+                    model.go()
+                }
+                .foregroundStyle(model.addressText.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.accentColor))
+                .disabled(model.addressText.isEmpty)
+            }
+        }
+        .padding(.trailing, 4)
+    }
+
+    private func iconButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.body.weight(.medium))
+                .frame(width: 36, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     private var leadingSymbol: String {
@@ -512,51 +533,47 @@ struct WebSurfaceView: View {
     // MARK: Empty state
 
     private var emptyState: some View {
-        VStack(spacing: 18) {
-            SurfaceEmptyState(
-                symbol: "safari",
-                title: "Open a page",
-                hint: "Search or paste a link above, then fold to fuse it with the other screen.",
-                tint: SurfaceKind.web.tint
-            )
-            .frame(maxHeight: 220)
-
+        ContentUnavailableView {
+            Label("Open a Page", systemImage: "safari")
+        } description: {
+            Text("Search or enter a link above, then fold to fuse it with the other screen.")
+        } actions: {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
                 ForEach(WebSurfaceModel.suggestions) { suggestion in
-                    Chip(title: suggestion.title, symbol: suggestion.symbol, tint: SurfaceKind.web.tint) {
+                    Chip(title: suggestion.title, symbol: suggestion.symbol) {
                         model.load(suggestion: suggestion)
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 20)
+            .frame(maxWidth: 360)
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func errorBanner(_ message: String) -> some View {
-        VStack {
-            Spacer()
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(Theme.magenta)
-                Text(message)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(2)
-                Spacer(minLength: 0)
-                Button("Retry") {
-                    Haptics.tap()
-                    model.reload()
-                }
-                .font(.fuseCaption)
-                .foregroundStyle(Theme.cyan)
-                .buttonStyle(.plain)
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Spacer(minLength: 0)
+            Button("Retry") {
+                Haptics.tap()
+                model.reload()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .glassEffect(.regular, in: .capsule)
-            .padding(12)
+            .font(.footnote.weight(.semibold))
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .glassEffect(.regular, in: .capsule)
+        .padding(.horizontal, 10)
+        .padding(.bottom, 10)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }

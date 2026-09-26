@@ -2,8 +2,10 @@ import SwiftUI
 
 // MARK: - Settings
 //
-// Keys (saved on commit, broadcast via AppConfig.didChange), sponsor status, Fuse Pro and
-// a short note on the iPhone Duo APIs the app is built on.
+// A standard inset-grouped form. Each key is its own section with a footer explaining it;
+// secrets are secure fields with a reveal toggle. Then service status, Fuse Pro, and a short
+// note on the iPhone Duo APIs the app is built on. Keys save on commit and broadcast via
+// AppConfig.didChange.
 
 struct SettingsView: View {
     var onDismiss: () -> Void
@@ -18,7 +20,9 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                keysSection
+                ForEach(AppConfig.Key.allCases) { key in
+                    keySection(key)
+                }
                 statusSection
                 proSection
                 aboutSection
@@ -48,36 +52,28 @@ struct SettingsView: View {
 
     // MARK: Keys
 
-    private var keysSection: some View {
+    private func keySection(_ key: AppConfig.Key) -> some View {
         Section {
-            ForEach(AppConfig.Key.allCases) { key in
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(key.title)
-                            .font(.fuseCaption)
-                            .foregroundStyle(Theme.textSecondary)
-                        Spacer()
-                        if key.isSecret {
-                            Button {
-                                Haptics.selection()
-                                if revealed.contains(key) { revealed.remove(key) } else { revealed.insert(key) }
-                            } label: {
-                                Image(systemName: revealed.contains(key) ? "eye.slash" : "eye")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(Theme.textTertiary)
-                            }
-                            .buttonStyle(.plain)
-                        }
+            HStack(spacing: 12) {
+                field(for: key)
+                if key.isSecret {
+                    Button {
+                        Haptics.selection()
+                        if revealed.contains(key) { revealed.remove(key) } else { revealed.insert(key) }
+                    } label: {
+                        Image(systemName: revealed.contains(key) ? "eye.slash" : "eye")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
                     }
-                    field(for: key)
-                    if key == .openAIModel { modelChips }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(revealed.contains(key) ? "Hide \(key.title)" : "Show \(key.title)")
                 }
-                .padding(.vertical, 4)
             }
+            if key == .openAIModel { modelChoices }
         } header: {
-            Text("Keys")
+            Text(key.title)
         } footer: {
-            Text("Stored only on this device. Values here override the build-time xcconfig.")
+            Text(Self.explanation(for: key))
         }
     }
 
@@ -94,8 +90,7 @@ struct SettingsView: View {
                 TextField(key.placeholder, text: binding)
             }
         }
-        .font(.fuseMono)
-        .foregroundStyle(Theme.textPrimary)
+        .font(.system(.body, design: .monospaced))
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
         .keyboardType(.asciiCapable)
@@ -104,31 +99,58 @@ struct SettingsView: View {
         .onSubmit { save(key) }
     }
 
+    private static func explanation(for key: AppConfig.Key) -> String {
+        switch key {
+        case .openAIKey:
+            "Used for every fuse. Stored only on this device and overrides the build-time xcconfig."
+        case .openAIModel:
+            "The model that reads both screens. Leave empty for the default."
+        case .supabaseProjectRef:
+            "The short ref from your project's URL. Enables the community feed and cloud history."
+        case .supabaseAnonKey:
+            "The public anon key from Project Settings, API. Never the service role key."
+        case .revenueCatKey:
+            "Public SDK key for Fuse Pro subscriptions. Without it the paywall runs in demo mode."
+        }
+    }
+
     private var currentModel: String {
         let typed = (values[.openAIModel] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return typed.isEmpty ? AppConfig.openAIModel : typed
     }
 
-    private var modelChips: some View {
+    /// Quick picks for the model, as bordered capsules; the selected one is prominent.
+    private var modelChoices: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(Self.modelChoices, id: \.self) { model in
-                    Chip(title: model, symbol: "cpu", tint: Theme.cyan, selected: currentModel == model) {
+                    let selected = currentModel == model
+                    Button {
                         Haptics.selection()
                         values[.openAIModel] = model
                         save(.openAIModel)
+                    } label: {
+                        Text(model)
+                            .font(.footnote.weight(.medium))
+                            .lineLimit(1)
                     }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
+                    .tint(selected ? Color.accentColor : Color(uiColor: .secondaryLabel))
+                    .accessibilityAddTraits(selected ? [.isSelected] : [])
                 }
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, 4)
         }
         .scrollIndicators(.hidden)
+        .scrollClipDisabled()
     }
 
     // MARK: Status
 
     private var statusSection: some View {
-        Section("Status") {
+        Section {
             StatusRow(
                 name: "OpenAI",
                 symbol: "brain",
@@ -147,6 +169,10 @@ struct SettingsView: View {
                 ok: RevenueCatService.shared.isConfigured,
                 detail: RevenueCatService.shared.statusText
             )
+        } header: {
+            Text("Status")
+        } footer: {
+            Text("A green dot means the service is configured and reachable.")
         }
     }
 
@@ -155,31 +181,22 @@ struct SettingsView: View {
     private var proSection: some View {
         let store = RevenueCatService.shared
         return Section {
-            HStack {
-                Label("Fuse Pro", systemImage: "bolt.fill")
-                    .foregroundStyle(Theme.textPrimary)
-                Spacer()
-                Text(store.isPro ? "PRO" : "FREE · \(store.remainingFree) LEFT TODAY")
-                    .font(.caption2.weight(.bold))
-                    .tracking(0.6)
-                    .foregroundStyle(store.isPro ? Color.white : Theme.textSecondary)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background {
-                        if store.isPro {
-                            Capsule().fill(Color.accentColor)
-                        } else {
-                            Capsule().fill(Color(uiColor: .tertiarySystemFill))
-                        }
-                    }
+            HStack(spacing: 12) {
+                IconTile(symbol: "bolt.fill", tint: .accentColor, size: 30)
+                Text("Fuse Pro")
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 8)
+                planBadge(isPro: store.isPro, remaining: store.remainingFree)
             }
+            .frame(minHeight: 44)
 
             Button {
                 Haptics.tap()
                 Task { await store.restore() }
             } label: {
                 HStack {
-                    Label("Restore purchases", systemImage: "arrow.clockwise")
+                    Label("Restore Purchases", systemImage: "arrow.clockwise")
                     Spacer()
                     if store.isRestoring { ProgressView().controlSize(.small) }
                 }
@@ -190,7 +207,7 @@ struct SettingsView: View {
                 Haptics.tap()
                 showPaywall = true
             } label: {
-                Label("Show paywall", systemImage: "sparkles")
+                Label("Show Paywall", systemImage: "sparkles")
             }
 
             if store.demoPro {
@@ -198,14 +215,15 @@ struct SettingsView: View {
                     Haptics.tap()
                     store.resetDemo()
                 } label: {
-                    Label("Reset demo Pro", systemImage: "arrow.uturn.backward")
+                    Label("Reset Demo Pro", systemImage: "arrow.uturn.backward")
                 }
             }
 
             if let error = store.lastError {
-                Text(error)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.magenta)
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         } header: {
             Text("Fuse Pro")
@@ -213,6 +231,25 @@ struct SettingsView: View {
             Text(store.isConfigured
                  ? "Subscriptions are handled by RevenueCat. Entitlement: \"\(RevenueCatService.entitlementID)\"."
                  : "No RevenueCat key yet. The paywall runs in demo mode and unlocks Pro on this device only.")
+        }
+    }
+
+    @ViewBuilder
+    private func planBadge(isPro: Bool, remaining: Int) -> some View {
+        if isPro {
+            Text("Pro")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.accentColor, in: Capsule())
+        } else {
+            Text("\(remaining) left today")
+                .font(.caption.weight(.medium).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
         }
     }
 
@@ -261,6 +298,7 @@ struct SettingsView: View {
 
 // MARK: - Rows
 
+/// Service name and one-line status, with a coloured dot on the trailing edge.
 private struct StatusRow: View {
     var name: String
     var symbol: String
@@ -272,22 +310,27 @@ private struct StatusRow: View {
             IconTile(symbol: symbol, tint: Color(uiColor: .systemGray), size: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
-                    .font(.fuseBody)
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(.body)
+                    .foregroundStyle(.primary)
                 Text(detail)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
+            Spacer(minLength: 8)
             Circle()
-                .fill(ok ? Color(uiColor: .systemGreen) : Theme.textTertiary)
-                .frame(width: 9, height: 9)
+                .fill(ok ? Color(uiColor: .systemGreen) : Color(uiColor: .tertiaryLabel))
+                .frame(width: 10, height: 10)
+                .accessibilityLabel(ok ? "Configured" : "Not configured")
         }
         .padding(.vertical, 2)
+        .frame(minHeight: 44)
+        .accessibilityElement(children: .combine)
     }
 }
 
+/// A Duo API on an accent tile, with the API name in monospace and a one-line explanation.
 private struct AboutRow: View {
     var symbol: String
     var title: String
@@ -297,16 +340,18 @@ private struct AboutRow: View {
         HStack(alignment: .top, spacing: 12) {
             IconTile(symbol: symbol, tint: .accentColor, size: 30)
                 .padding(.top, 1)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.fuseMono)
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(detail)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }

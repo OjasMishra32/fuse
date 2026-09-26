@@ -8,7 +8,7 @@ import AVFoundation
 //   • hold the core → fuse without folding
 //   • hold the mic  → say what you want, let go to fuse
 //   • pinch along the seam → squeeze the halves together
-// Below it, what the model thinks the fold should do right now, as plain chips.
+// Below it, what the model thinks the fold should do right now, as one pill.
 
 struct SeamView: View {
     @Bindable var model: AppModel
@@ -18,12 +18,14 @@ struct SeamView: View {
     @State private var pressingCore = false
     @State private var listening = false
     @State private var awaitingTap = false
+
     private var center: CGPoint { CGPoint(x: fold.frame.midX, y: fold.frame.midY) }
+    private var inviting: Bool { model.foldPrompt && model.phase == .compose }
 
     var body: some View {
         ZStack {
             hairline
-            if model.foldPrompt && model.phase == .compose { sweep; foldInvite }
+            if inviting { sweep }
             core
         }
         .onReceive(NotificationCenter.default.publisher(for: .fuseStartListening)) { _ in
@@ -35,12 +37,23 @@ struct SeamView: View {
 
     private var hairline: some View {
         let color = model.readiness == 2 ? Color.accentColor.opacity(0.55) : Theme.line
+        // The tap zone is the hinge itself, never the halves' content beside it.
+        let zone = max(fold.isVertical ? fold.frame.width : fold.frame.height, 12)
         return Group {
             if fold.isVertical {
-                Rectangle().fill(color).frame(width: 1, height: size.height + 300)
+                Rectangle().fill(color)
+                    .frame(width: 1, height: size.height + 300)
+                    .frame(width: zone)
             } else {
-                Rectangle().fill(color).frame(width: size.width + 300, height: 1)
+                Rectangle().fill(color)
+                    .frame(width: size.width + 300, height: 1)
+                    .frame(height: zone)
             }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 3) {
+            Haptics.rigid()
+            withAnimation(Theme.snappy) { model.showDevPanel.toggle() }
         }
         .position(center)
         .animation(Theme.smooth, value: model.readiness)
@@ -65,12 +78,9 @@ struct SeamView: View {
     }
 
     private var foldInvite: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 2) {
             HStack(spacing: 8) {
-                Image(systemName: fold.isVertical ? "arrow.right.and.line.vertical.and.arrow.left" : "arrow.down.and.line.horizontal.and.arrow.up")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .symbolEffect(.pulse, options: .repeating)
+                OrbGlyph(size: 20)
                 Text("Fold to fuse")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
@@ -79,15 +89,16 @@ struct SeamView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-                .frame(maxWidth: 200)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .fixedSize()
-        .position(x: center.x, y: center.y - 92)
-        .transition(.scale(scale: 0.9).combined(with: .opacity))
+        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 16))
+        .frame(maxWidth: 240)
         .onTapGesture { withAnimation(Theme.snappy) { model.foldPrompt = false } }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Dismisses the reminder")
+        .transition(.scale(scale: 0.9).combined(with: .opacity))
     }
 
     // MARK: Core
@@ -96,20 +107,28 @@ struct SeamView: View {
         Group {
             if fold.isVertical {
                 VStack(spacing: 12) {
-                    GlassEffectContainer(spacing: 8) {
-                        VStack(spacing: 8) { coreOrb; micButton }
+                    GlassEffectContainer(spacing: 10) {
+                        VStack(spacing: 10) { coreOrb; micButton }
                     }
-                    intentPill
+                    intentPill(alignment: .center)
                 }
             } else {
                 HStack(spacing: 12) {
-                    intentPill
-                    GlassEffectContainer(spacing: 8) {
-                        HStack(spacing: 8) { micButton; coreOrb }
+                    intentPill(alignment: .trailing)
+                    GlassEffectContainer(spacing: 10) {
+                        HStack(spacing: 10) { micButton; coreOrb }
                     }
                 }
             }
         }
+        // The invite sits 12pt above the core, whichever way the fold runs, so it never overlaps it.
+        .overlay(alignment: .top) {
+            if inviting {
+                foldInvite
+                    .alignmentGuide(.top) { $0[.bottom] + 12 }
+            }
+        }
+        .animation(Theme.snappy, value: model.foldPrompt)
         .position(center)
         .gesture(seamPinch)
     }
@@ -126,19 +145,6 @@ struct SeamView: View {
 
     private var coreOrb: some View {
         ZStack {
-            if model.readiness == 2 {
-                Circle()
-                    .fill(Color.accentColor.opacity(0.25))
-                    .frame(width: 58, height: 58)
-                    .blur(radius: 18)
-                    .phaseAnimator([0.95, 1.25]) { view, scale in
-                        view.scaleEffect(scale)
-                    } animation: { _ in
-                        .easeInOut(duration: 2.2)
-                    }
-                    .transition(.opacity)
-                    .allowsHitTesting(false)
-            }
             Circle()
                 .fill(.clear)
                 .frame(width: 58, height: 58)
@@ -146,7 +152,6 @@ struct SeamView: View {
             OrbView(size: 48, animated: true, intensity: coreIntensity, speed: 0.8)
                 .allowsHitTesting(false)
         }
-        .animation(Theme.smooth, value: model.readiness)
         .scaleEffect(pressingCore ? 0.92 : 1)
         .animation(Theme.snappy, value: pressingCore)
         .onLongPressGesture(minimumDuration: 0.55, maximumDistance: 30) {
@@ -160,22 +165,24 @@ struct SeamView: View {
                 model.foldProgress = pressing ? 0.6 : 0
             }
         }
+        .accessibilityElement()
         .accessibilityLabel("Fuse")
         .accessibilityHint("Hold to fuse both screens")
+        .accessibilityAddTraits(.isButton)
     }
 
     private var micButton: some View {
         ZStack {
             Circle()
                 .fill(.clear)
-                .frame(width: 36, height: 36)
+                .frame(width: 44, height: 44)
                 .glassEffect(.regular.interactive(), in: .circle)
             Image(systemName: listening ? "waveform" : "mic.fill")
-                .font(.system(size: 13, weight: .medium))
+                .font(.body.weight(.medium))
                 .foregroundStyle(listening ? Color.accentColor : Color.primary)
                 .symbolEffect(.variableColor.iterative, isActive: listening)
         }
-        .scaleEffect(listening ? 1.12 : 1)
+        .scaleEffect(listening ? 1.08 : 1)
         .animation(Theme.snappy, value: listening)
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -191,73 +198,80 @@ struct SeamView: View {
                     }
                 }
         )
+        .accessibilityElement()
         .accessibilityLabel("Speak an instruction")
         .accessibilityHint("Hold, say what to make, let go")
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: One pill: what the fold will do. Tap for the alternatives.
 
+    /// The pill hugs its text up to 260pt; `alignment` says where it sits inside that footprint.
     @ViewBuilder
-    private var intentPill: some View {
-        if model.phase == .compose && !model.foldPrompt {
-            if listening {
-                pillLabel(symbol: "waveform", text: SpeechService.shared.transcript.isEmpty ? "Listening…" : SpeechService.shared.transcript, prominent: true)
+    private func intentPill(alignment: Alignment) -> some View {
+        Group {
+            if model.phase == .compose && !model.foldPrompt {
+                if listening {
+                    pillLabel(symbol: "waveform", text: SpeechService.shared.transcript.isEmpty ? "Listening…" : SpeechService.shared.transcript, prominent: true)
+                        .transition(.scale(scale: 0.9).combined(with: .opacity))
+                } else if !model.instruction.isEmpty {
+                    Menu {
+                        Button("Change…", systemImage: "keyboard") { model.showInstructionEditor = true }
+                        Button("Clear Instruction", systemImage: "xmark.circle", role: .destructive) {
+                            withAnimation(Theme.snappy) { model.instruction = ""; model.chosenSuggestion = nil }
+                        }
+                    } label: {
+                        pillLabel(symbol: "text.quote", text: "Fold: \(model.instruction)", prominent: true)
+                    }
+                    .menuStyle(.button)
+                    .buttonStyle(.plain)
                     .transition(.scale(scale: 0.9).combined(with: .opacity))
-            } else if !model.instruction.isEmpty {
-                Menu {
-                    Button("Change…", systemImage: "keyboard") { model.showInstructionEditor = true }
-                    Button("Clear instruction", systemImage: "xmark.circle", role: .destructive) {
-                        withAnimation(Theme.snappy) { model.instruction = ""; model.chosenSuggestion = nil }
+                } else if let top = model.defaultSuggestion {
+                    Menu {
+                        ForEach(model.suggestions) { s in
+                            Button(s.title, systemImage: s.resolvedSymbol) { model.choose(s) }
+                        }
+                        Divider()
+                        Button("Type an Instruction…", systemImage: "keyboard") { model.showInstructionEditor = true }
+                    } label: {
+                        pillLabel(symbol: top.resolvedSymbol, text: "Fold: \(top.title)", prominent: true)
                     }
-                } label: {
-                    pillLabel(symbol: "text.quote", text: "Fold: \(model.instruction)", prominent: true)
-                }
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .transition(.scale(scale: 0.9).combined(with: .opacity))
-            } else if let top = model.defaultSuggestion {
-                Menu {
-                    ForEach(model.suggestions) { s in
-                        Button(s.title, systemImage: s.resolvedSymbol) { model.choose(s) }
+                    .menuStyle(.button)
+                    .buttonStyle(.plain)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                } else if model.isPreviewing {
+                    pillLabel(symbol: "circle.dotted", text: "Reading both screens", prominent: false)
+                        .transition(.opacity)
+                } else if model.readiness > 0 {
+                    Button {
+                        model.showInstructionEditor = true
+                    } label: {
+                        pillLabel(symbol: "keyboard", text: "Fold, or say what to make", prominent: false)
                     }
-                    Divider()
-                    Button("Type an instruction…", systemImage: "keyboard") { model.showInstructionEditor = true }
-                } label: {
-                    pillLabel(symbol: top.resolvedSymbol, text: "Fold: \(top.title)", prominent: true)
-                }
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .transition(.scale(scale: 0.9).combined(with: .opacity))
-            } else if model.isPreviewing {
-                pillLabel(symbol: "circle.dotted", text: "Reading both screens", prominent: false)
+                    .buttonStyle(.plain)
                     .transition(.opacity)
-            } else if model.readiness > 0 {
-                Button {
-                    model.showInstructionEditor = true
-                } label: {
-                    pillLabel(symbol: "keyboard", text: "Fold, or say what to make", prominent: false)
                 }
-                .buttonStyle(.plain)
-                .transition(.opacity)
             }
         }
+        .frame(maxWidth: 260, alignment: alignment)
+        .animation(Theme.snappy, value: model.instruction)
+        .animation(Theme.snappy, value: model.defaultSuggestion)
+        .animation(Theme.snappy, value: listening)
     }
 
     private func pillLabel(symbol: String, text: String, prominent: Bool) -> some View {
         HStack(spacing: 6) {
             Image(systemName: symbol)
-                .font(.footnote.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
             Text(text)
-                .font(.footnote.weight(prominent ? .semibold : .regular))
+                .font(.subheadline.weight(prominent ? .semibold : .regular))
                 .lineLimit(1)
                 .truncationMode(.tail)
         }
         .foregroundStyle(prominent ? Color.accentColor : Color.secondary)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
         .glassEffect(.regular.interactive(), in: .capsule)
-        .frame(maxWidth: 240)
-        .fixedSize(horizontal: true, vertical: false)
     }
 
     // MARK: Pinch along the seam
@@ -315,16 +329,5 @@ struct SeamView: View {
                 model.fuse(withSpokenInstruction: text)
             }
         }
-    }
-}
-
-/// Type-erased primitive button style so a chip can switch between bordered and prominent.
-struct AnyPrimitiveButtonStyle: PrimitiveButtonStyle {
-    private let make: (Configuration) -> AnyView
-    init<S: PrimitiveButtonStyle>(_ style: S) {
-        make = { AnyView(style.makeBody(configuration: $0)) }
-    }
-    func makeBody(configuration: Configuration) -> some View {
-        make(configuration)
     }
 }

@@ -4,6 +4,8 @@ import SwiftUI
 //
 // What the outer display shows while the phone is closed. Closing is the command, so the
 // cover is where the answer lands: progress while fusing, the result when it is ready.
+// The background fills the display; everything else stays inside the safe area, clear of
+// the camera cutout and the display's rounded corners.
 
 struct CoverView: View {
     @Bindable var model: AppModel
@@ -43,22 +45,37 @@ struct CoverView: View {
         }
     }
 
+    private var idleTitle: String {
+        switch model.readiness {
+        case 0: "Nothing to fuse yet"
+        case 1: "One screen is ready"
+        default: "Ready to fuse"
+        }
+    }
+
+    private var idleHint: String {
+        switch model.readiness {
+        case 0: "Open the phone and put something on each screen."
+        case 1: "Open to add the other screen, or fuse this one alone."
+        default: "Fold to combine \(model.left.kind.title) and \(model.right.kind.title)."
+        }
+    }
+
     private var idle: some View {
         VStack(spacing: 0) {
-            Spacer()
+            Spacer(minLength: 0)
             OrbView(size: 44, animated: true, intensity: idleIntensity, speed: 0.5)
-                .padding(.bottom, 18)
-            Text(model.readiness == 0 ? "Nothing to fuse yet" : model.readiness == 1 ? "One screen is ready" : "Ready to fuse")
+                .padding(.bottom, 16)
+            Text(idleTitle)
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(.primary)
-                .padding(.bottom, 6)
-            Text(model.readiness == 0
-                 ? "Open the phone and put something on each screen."
-                 : model.readiness == 1 ? "Open to add the other screen, or fuse this one alone."
-                 : "Fold to combine \(model.left.kind.title) and \(model.right.kind.title).")
+                .multilineTextAlignment(.center)
+                .padding(.bottom, 8)
+            Text(idleHint)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 300)
             if model.readiness > 0 {
                 VStack(spacing: 0) {
@@ -66,25 +83,24 @@ struct CoverView: View {
                     Divider().padding(.leading, 52)
                     screenRow(model.right)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+                .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
                 .frame(maxWidth: 360)
                 .padding(.top, 24)
             }
-            Spacer()
+            Spacer(minLength: 0)
             if model.readiness > 0 {
                 Button {
                     model.fuse(trigger: .seam)
                 } label: {
-                    Label("Fuse now", systemImage: "circle.hexagongrid.fill").fontWeight(.semibold)
+                    Label("Fuse Now", systemImage: "circle.hexagongrid.fill").fontWeight(.semibold)
                 }
                 .buttonStyle(.glassProminent)
                 .buttonBorderShape(.capsule)
-                .padding(.bottom, 34)
+                .padding(.bottom, 16)
             }
         }
         .padding(.horizontal, Theme.gutter)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea()
         .animation(Theme.smooth, value: model.readiness)
     }
 
@@ -93,7 +109,7 @@ struct CoverView: View {
         return HStack(spacing: 12) {
             AppGlyph(kind: pane.kind, size: 28)
                 .opacity(surface.hasContent ? 1 : 0.4)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(pane.kind.title)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -106,22 +122,7 @@ struct CoverView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-    }
-
-    private func screenDot(_ pane: Pane) -> some View {
-        let surface = pane.model
-        return HStack(spacing: 6) {
-            AppGlyph(kind: pane.kind, size: 16)
-                .opacity(surface.hasContent ? 1 : 0.4)
-            Text(surface.hasContent ? surface.headline : "Empty")
-                .font(.footnote)
-                .foregroundStyle(surface.hasContent ? .primary : .tertiary)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color(uiColor: .secondarySystemFill), in: Capsule())
-        .frame(maxWidth: 150)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -134,27 +135,31 @@ struct FailureCard: View {
     var onDismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 26, weight: .medium))
+                .font(.system(size: 28, weight: .medium))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text("That fuse didn't take")
-                .font(.fuseHeadline)
-                .foregroundStyle(Theme.textPrimary)
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
             Text(message)
-                .font(.fuseCaption)
-                .foregroundStyle(Theme.textSecondary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(6)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 320)
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 GlassButton(title: "Back", symbol: "arrow.uturn.backward", action: onDismiss)
-                EnergyButton(title: "Try again", symbol: "arrow.clockwise", action: onRetry)
+                EnergyButton(title: "Try Again", symbol: "arrow.clockwise", action: onRetry)
             }
+            .padding(.top, 4)
         }
         .padding(Theme.gutter)
         .frame(maxWidth: 420)
-        .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+        .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
         .padding(Theme.gutter)
     }
 }

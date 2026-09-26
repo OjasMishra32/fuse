@@ -3,9 +3,9 @@ import UIKit
 
 // MARK: - Result screen
 //
-// The payoff. Quiet header (orb glyph, the two inputs, title, summary), then the artifact,
-// then follow-ups. Actions live in a glass toolbar pinned to the bottom. Everything fades
-// in, staggered, once.
+// The payoff. Quiet header (orb glyph, the two inputs, Close), a large title and the summary,
+// then the artifact, then follow-ups as grouped rows. Actions live in a glass toolbar pinned to
+// the bottom safe area so they never cover content. Everything fades in, staggered, once.
 
 struct ResultView: View {
     let result: FuseResult
@@ -20,14 +20,15 @@ struct ResultView: View {
     @State private var showShare = false
     @State private var copied = false
 
-    private let gutter: CGFloat = Theme.gutter
+    /// 20pt on the inner display, 16pt on the cover.
+    private var gutter: CGFloat { compact ? Theme.margin : Theme.gutter }
 
     var body: some View {
         GeometryReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
                 // Three staggered steps: header, artifact, then follow-ups. The width is pinned to
                 // the display so wide artifacts wrap instead of pushing the page sideways.
-                VStack(alignment: .leading, spacing: compact ? 18 : 24) {
+                VStack(alignment: .leading, spacing: 24) {
                     header
                         .reveal(appeared, index: 0)
                     artifact
@@ -38,12 +39,11 @@ struct ResultView: View {
                     }
                 }
                 .padding(.horizontal, gutter)
-                .padding(.top, compact ? 10 : 14)
+                .padding(.top, compact ? 12 : 16)
                 .padding(.bottom, 24)
                 .frame(width: max(proxy.size.width, 0), alignment: .leading)
                 .clipped()
             }
-            .scrollClipDisabled(false)
         }
         .safeAreaInset(edge: .bottom) {
             actions
@@ -64,16 +64,12 @@ struct ResultView: View {
 
     // MARK: Header
 
-    private var inputsLine: String {
-        result.inputs.isEmpty ? result.recipe.fuseHumanized : result.inputs.map(\.kind.title).joined(separator: " and ")
-    }
-
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Orb glyph, the inputs, and Close, on one quiet line above the title.
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 OrbGlyph(size: 28)
-                Text(inputsLine)
+                Text(result.inputsLine)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -103,7 +99,6 @@ struct ResultView: View {
                 Text(result.summary)
                     .font(.body)
                     .foregroundStyle(.primary)
-                    .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 4)
             }
@@ -145,36 +140,36 @@ struct ResultView: View {
     // MARK: Follow-ups
 
     private var followUps: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Next")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.leading, Theme.margin)
-            VStack(spacing: 0) {
-                ForEach(Array(result.followUps.enumerated()), id: \.offset) { index, suggestion in
-                    if index > 0 { Divider().padding(.leading, 16) }
-                    Button {
-                        Haptics.tap()
-                        onFollowUp(suggestion)
-                    } label: {
-                        HStack(spacing: 10) {
-                            Text(suggestion)
-                                .font(.body)
-                                .foregroundStyle(.primary)
-                                .multilineTextAlignment(.leading)
-                            Spacer(minLength: 8)
-                            Image(systemName: "chevron.right")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundStyle(.tertiary)
+        ResultSection(title: "Next") {
+            ResultCard(padding: 0) {
+                VStack(spacing: 0) {
+                    ForEach(Array(result.followUps.enumerated()), id: \.offset) { index, suggestion in
+                        if index > 0 { Hairline().padding(.leading, Theme.margin) }
+                        Button {
+                            Haptics.tap()
+                            onFollowUp(suggestion)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text(suggestion)
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 8)
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, Theme.margin)
+                            .padding(.vertical, 12)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
             }
-            .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
         }
     }
 
@@ -182,8 +177,8 @@ struct ResultView: View {
 
     /// Pinned to the bottom edge as glass buttons; content scrolls beneath it.
     private var actions: some View {
-        GlassEffectContainer(spacing: 10) {
-            HStack(spacing: 10) {
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
                 Button {
                     Haptics.medium()
                     onRefuse()
@@ -234,6 +229,7 @@ struct ResultView: View {
     private func toolbarLabel(_ title: String, symbol: String) -> some View {
         if compact {
             Image(systemName: symbol)
+                .frame(minWidth: 20)
         } else {
             Label(title, systemImage: symbol)
         }

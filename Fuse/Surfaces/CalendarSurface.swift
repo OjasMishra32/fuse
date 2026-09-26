@@ -385,12 +385,16 @@ final class CalendarSurfaceModel: SurfaceModel {
 
 // MARK: - View
 
+/// The week as an inset-grouped list, one section per day, a dot per event. A glass pill
+/// at the top says which week this is; the list scrolls underneath it.
 struct CalendarSurfaceView: View {
     let model: CalendarSurfaceModel
 
+    private let accent = Color(uiColor: .systemRed)
+
     var body: some View {
         ZStack {
-            Theme.ink2.ignoresSafeArea()
+            Theme.grouped.ignoresSafeArea()
 
             if model.hasContent {
                 eventList
@@ -398,10 +402,9 @@ struct CalendarSurfaceView: View {
             } else if model.isLoading || model.access == .requesting {
                 VStack(spacing: 12) {
                     ProgressView()
-                        .tint(SurfaceKind.calendar.tint)
                     Text(model.access == .requesting ? "Waiting for calendar access…" : "Reading your week…")
-                        .font(.fuseCaption)
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             } else {
                 emptyState
@@ -409,7 +412,6 @@ struct CalendarSurfaceView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.ink.ignoresSafeArea())
         .animation(Theme.snappy, value: model.hasContent)
         .onAppear { model.loadIfNeeded() }
     }
@@ -417,169 +419,165 @@ struct CalendarSurfaceView: View {
     // MARK: Empty
 
     private var emptyState: some View {
-        VStack(spacing: 18) {
-            SurfaceEmptyState(
-                symbol: model.access == .denied ? "calendar.badge.exclamationmark" : "calendar",
-                title: model.access == .denied ? "Calendar access is off" : "Nothing this week",
-                hint: model.access == .denied
-                    ? "Allow access in Settings, or load a sample week to try the fuse."
-                    : "Your next 7 days are clear. Load a sample week to see how events fuse with the other screen.",
-                tint: SurfaceKind.calendar.tint
-            )
-            .frame(maxHeight: 200)
-
-            EnergyButton(title: "Load sample week", symbol: "sparkles") {
-                model.loadSampleWeek()
-            }
-
-            if model.access == .denied {
-                GlassButton(title: "Open Settings", symbol: "gear") {
-                    Haptics.tap()
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
+        ContentUnavailableView {
+            Label(model.access == .denied ? "Calendar Access Is Off" : "Nothing This Week",
+                  systemImage: model.access == .denied ? "calendar.badge.exclamationmark" : "calendar")
+        } description: {
+            Text(model.access == .denied
+                 ? "Allow access in Settings, or load a sample week to try the fuse."
+                 : "Your next 7 days are clear. Load a sample week to see how events fuse with the other screen.")
+        } actions: {
+            VStack(spacing: 8) {
+                Button {
+                    model.loadSampleWeek()
+                } label: {
+                    Label("Load Sample Week", systemImage: "sparkles")
                 }
-            } else if model.access == .granted {
-                GlassButton(title: "Refresh", symbol: "arrow.clockwise") {
-                    Haptics.tap()
-                    Task { await model.refresh() }
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+
+                if model.access == .denied {
+                    Button("Open Settings") {
+                        Haptics.tap()
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.borderless)
+                } else if model.access == .granted {
+                    Button("Refresh") {
+                        Haptics.tap()
+                        Task { await model.refresh() }
+                    }
+                    .buttonStyle(.borderless)
                 }
             }
         }
-        .padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: List
 
     private var eventList: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                HStack(spacing: 5) {
-                    Image(systemName: model.isSample ? "sparkles" : "calendar")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(SurfaceKind.calendar.tint)
-                    Text(model.isSample ? "Sample week" : "Next 7 days")
-                        .font(.fuseCaption)
-                        .foregroundStyle(Theme.textSecondary)
+        List {
+            ForEach(model.days) { day in
+                Section {
+                    ForEach(day.events) { event in
+                        eventRow(event)
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                    }
+                } header: {
+                    dayHeader(day.date)
                 }
-                .padding(.horizontal, 11)
-                .padding(.vertical, 7)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollIndicators(.hidden)
+        .safeAreaInset(edge: .top, spacing: 0) { toolbar }
+    }
+
+    private var toolbar: some View {
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: model.isSample ? "sparkles" : "calendar")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(accent)
+                        .accessibilityHidden(true)
+                    Text(model.isSample ? "Sample Week" : "Next 7 Days")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(model.events.count == 1 ? "1 event" : "\(model.events.count) events")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .glassEffect(.regular, in: .capsule)
-
-                Spacer(minLength: 0)
-
-                Text(model.events.count == 1 ? "1 event" : "\(model.events.count) events")
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textTertiary)
-                    .monospacedDigit()
+                .accessibilityElement(children: .combine)
 
                 if model.isSample {
                     Button {
                         Haptics.tap()
                         model.useRealCalendar()
                     } label: {
-                        Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .frame(width: 30, height: 30)
-                            .glassEffect(.regular.interactive(), in: .circle)
+                        iconLabel("arrow.uturn.backward")
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Use My Calendar")
                 } else {
                     Button {
                         Haptics.tap()
                         Task { await model.refresh() }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .frame(width: 30, height: 30)
-                            .glassEffect(.regular.interactive(), in: .circle)
+                        iconLabel("arrow.clockwise")
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Refresh")
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 12)
-            .padding(.bottom, 6)
-
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
-                    ForEach(model.days) { day in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                Text(CalendarSurfaceModel.header(for: day.date))
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(Calendar.current.isDateInToday(day.date) ? SurfaceKind.calendar.tint : Theme.textPrimary)
-                                if Calendar.current.isDateInToday(day.date) || Calendar.current.isDateInTomorrow(day.date) {
-                                    Text(CalendarSurfaceModel.dayFormatter.string(from: day.date))
-                                        .font(.fuseCaption)
-                                        .foregroundStyle(Theme.textTertiary)
-                                }
-                            }
-                            .padding(.horizontal, 4)
-
-                            VStack(spacing: 4) {
-                                ForEach(day.events) { event in
-                                    eventRow(event)
-                                }
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.top, 4)
-                .padding(.bottom, 14)
-            }
-            .scrollIndicators(.hidden)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+    }
+
+    private func iconLabel(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.body.weight(.medium))
+            .foregroundStyle(.primary)
+            .frame(width: 44, height: 44)
+            .glassEffect(.regular.interactive(), in: .circle)
+    }
+
+    private func dayHeader(_ date: Date) -> some View {
+        let today = Calendar.current.isDateInToday(date)
+        return HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(CalendarSurfaceModel.header(for: date))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(today ? accent : .primary)
+            if today || Calendar.current.isDateInTomorrow(date) {
+                Text(CalendarSurfaceModel.dayFormatter.string(from: date))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .textCase(nil)
     }
 
     private func eventRow(_ event: CalendarEvent) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .trailing, spacing: 2) {
-                if event.isAllDay {
-                    Text("All day")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
-                } else {
-                    Text(CalendarSurfaceModel.timeFormatter.string(from: event.start))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Text(CalendarSurfaceModel.timeFormatter.string(from: event.end))
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.textTertiary)
-                }
-            }
-            .frame(width: 58, alignment: .trailing)
-            .monospacedDigit()
-
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(event.tint)
-                .frame(width: 3)
-                .padding(.vertical, 2)
-
+            Circle()
+                .fill(model.isSample ? accent : event.tint)
+                .frame(width: 8, height: 8)
+                .padding(.top, 6)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
-                if let location = event.location, !location.isEmpty {
-                    HStack(spacing: 4) {
-                        Image(systemName: "mappin")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text(location)
-                            .lineLimit(1)
-                    }
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
-                }
+                Text(detail(for: event))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(Theme.ink3.opacity(0.7), in: RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func detail(for event: CalendarEvent) -> String {
+        var parts: [String] = []
+        if event.isAllDay {
+            parts.append("All day")
+        } else {
+            parts.append(CalendarSurfaceModel.timeFormatter.string(from: event.start) + " – " + CalendarSurfaceModel.timeFormatter.string(from: event.end))
+        }
+        if let location = event.location, !location.isEmpty { parts.append(location) }
+        return parts.joined(separator: " · ")
     }
 }

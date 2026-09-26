@@ -8,33 +8,43 @@ struct EmailArtifactView: View {
     @State private var mailUnavailable = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
+            // To / Subject as grouped rows.
             ResultCard(padding: 0) {
                 VStack(alignment: .leading, spacing: 0) {
                     fieldRow("To", email.to.isEmpty ? "—" : email.to.joined(separator: ", "))
-                    Hairline()
-                    fieldRow("Subject", email.subject.isEmpty ? "(no subject)" : email.subject)
-                    Hairline()
-                    Text(email.body.isEmpty ? "(empty message)" : email.body)
-                        .font(.fuseBody)
-                        .foregroundStyle(email.body.isEmpty ? Theme.textTertiary : Theme.textPrimary.opacity(0.92))
-                        .lineSpacing(3)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(16)
+                    Hairline().padding(.leading, Theme.margin)
+                    fieldRow("Subject", email.subject.isEmpty ? "No subject" : email.subject)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
             }
 
-            FlowLayout(spacing: 10) {
-                EnergyButton(title: "Open in Mail", symbol: "envelope") { openMail() }
-                GlassCopyButton(text: plainBody)
+            // The body on its own card.
+            ResultCard {
+                Text(email.body.isEmpty ? "Empty message" : email.body)
+                    .font(.body)
+                    .foregroundStyle(email.body.isEmpty ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            FlowLayout(spacing: 8) {
+                Button {
+                    openMail()
+                } label: {
+                    Label("Open in Mail", systemImage: "envelope")
+                        .fontWeight(.semibold)
+                }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                CopyButton(text: plainBody)
             }
 
             if mailUnavailable {
                 Text("Mail isn't set up on this device. The draft was copied instead.")
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -51,17 +61,18 @@ struct EmailArtifactView: View {
     private func fieldRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
-                .font(.fuseCaption)
-                .foregroundStyle(Theme.textTertiary)
-                .frame(width: 56, alignment: .leading)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(width: 64, alignment: .leading)
             Text(value)
-                .font(.fuseBody)
-                .foregroundStyle(Theme.textPrimary)
+                .font(.body)
+                .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Theme.margin)
         .padding(.vertical, 11)
+        .frame(minHeight: 44)
     }
 
     private var mailtoURL: URL? {
@@ -92,24 +103,6 @@ struct EmailArtifactView: View {
     }
 }
 
-/// Glass-styled copy button with a transient "Copied" state.
-struct GlassCopyButton: View {
-    var text: String
-    @State private var copied = false
-
-    var body: some View {
-        GlassButton(title: copied ? "Copied" : "Copy", symbol: copied ? "checkmark" : "doc.on.doc") {
-            UIPasteboard.general.string = text
-            Haptics.soft()
-            withAnimation(Theme.snappy) { copied = true }
-            Task {
-                try? await Task.sleep(for: .seconds(1.4))
-                withAnimation(Theme.snappy) { copied = false }
-            }
-        }
-    }
-}
-
 // MARK: - Code
 
 struct CodeArtifactView: View {
@@ -127,68 +120,69 @@ struct CodeArtifactView: View {
         let allLines = lines
         let shown = Array(allLines.prefix(Self.maxLines))
         let hidden = allLines.count - shown.count
-        let gutterWidth = CGFloat(String(max(shown.count, 1)).count) * 8 + 6
 
         VStack(alignment: .leading, spacing: 12) {
             ResultCard(padding: 0) {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 8) {
                         Image(systemName: "doc.text")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.textTertiary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                         Text(code.filename?.isEmpty == false ? code.filename! : code.language)
                             .font(.fuseMono)
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer(minLength: 8)
                         if code.filename?.isEmpty == false {
                             Text(code.language.uppercased())
-                                .font(.system(size: 10, weight: .bold))
-                                .tracking(0.8)
-                                .foregroundStyle(Theme.textTertiary)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
-                        CopyMiniButton(text: code.code)
+                        CopyButton(text: code.code, size: .small)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background(Theme.ink3)
+                    .padding(.horizontal, Theme.margin)
+                    .padding(.vertical, 8)
                     Hairline()
 
+                    // Line numbers in the tertiary colour; the grid sizes the gutter to the widest number.
                     ScrollView(.horizontal, showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 0) {
+                        Grid(alignment: .topLeading, horizontalSpacing: 12, verticalSpacing: 0) {
                             ForEach(shown.indices, id: \.self) { i in
-                                HStack(alignment: .top, spacing: 14) {
+                                GridRow {
                                     Text("\(i + 1)")
-                                        .font(.fuseMono)
-                                        .foregroundStyle(Theme.textTertiary)
-                                        .frame(width: gutterWidth, alignment: .trailing)
+                                        .font(.fuseMono.monospacedDigit())
+                                        .foregroundStyle(.tertiary)
+                                        .gridColumnAlignment(.trailing)
                                     Text(shown[i].isEmpty ? " " : shown[i])
                                         .font(.fuseMono)
-                                        .foregroundStyle(Theme.textPrimary.opacity(0.92))
+                                        .foregroundStyle(.primary)
                                         .lineLimit(1)
                                         .fixedSize(horizontal: true, vertical: false)
                                 }
                                 .padding(.vertical, 1.5)
                             }
                         }
-                        .padding(14)
+                        .padding(Theme.margin)
+                        .textSelection(.enabled)
                     }
 
                     if hidden > 0 {
                         Hairline()
-                        Text("… \(hidden) more \(hidden == 1 ? "line" : "lines"). Copy to get everything.")
-                            .font(.fuseCaption)
-                            .foregroundStyle(Theme.textTertiary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
+                        Text("\(hidden) more \(hidden == 1 ? "line" : "lines"). Copy to get everything.")
+                            .font(.footnote.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, Theme.margin)
+                            .padding(.vertical, 8)
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
             }
 
             if let explanation = code.explanation?.trimmingCharacters(in: .whitespacesAndNewlines), !explanation.isEmpty {
-                InlineText(text: explanation, color: Theme.textSecondary)
+                InlineText(text: explanation, font: .subheadline, color: .secondary)
+                    .padding(.horizontal, 4)
             }
         }
     }
@@ -201,23 +195,21 @@ struct DiffArtifactView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(diff.title)
-                    .font(.fuseHeadline)
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(2)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
                 Text(diff.changes.count == 1 ? "1 change" : "\(diff.changes.count) changes")
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textTertiary)
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
+            .padding(.horizontal, 4)
 
             if diff.changes.isEmpty {
-                ResultCard {
-                    Text("No changes suggested.")
-                        .font(.fuseBody)
-                        .foregroundStyle(Theme.textSecondary)
-                }
+                EmptyArtifactCard(text: "No changes suggested.")
             }
 
             ForEach(diff.changes.indices, id: \.self) { index in
@@ -231,11 +223,11 @@ struct DiffArtifactView: View {
                             Hairline()
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Image(systemName: "text.bubble")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(Theme.textTertiary)
-                                InlineText(text: reason, font: .fuseCaption, color: Theme.textSecondary)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                InlineText(text: reason, font: .footnote, color: .secondary)
                             }
-                            .padding(.horizontal, 14)
+                            .padding(.horizontal, Theme.margin)
                             .padding(.vertical, 10)
                         }
                     }
@@ -244,93 +236,95 @@ struct DiffArtifactView: View {
             }
 
             if let verdict = diff.verdict?.trimmingCharacters(in: .whitespacesAndNewlines), !verdict.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Eyebrow(text: "Verdict")
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Theme.violet)
-                        InlineText(text: verdict, color: Theme.textPrimary)
+                ResultSection(title: "Verdict") {
+                    ResultCard {
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.body)
+                                .foregroundStyle(Color.accentColor)
+                            InlineText(text: verdict)
+                        }
                     }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.violet.opacity(0.12), in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.violet.opacity(0.3), lineWidth: 1))
                 }
-                .padding(.top, 4)
             }
         }
     }
 
+    /// Original on a red 10% fill, struck through; revised on green 10%.
     private func block(symbol: String, text: String, tint: Color, strike: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .bold))
+                .font(.footnote.weight(.bold))
                 .foregroundStyle(tint)
-                .frame(width: 14)
-            Text(text.isEmpty ? "(empty)" : text)
-                .font(.fuseBody)
-                .strikethrough(strike, color: tint.opacity(0.7))
-                .foregroundStyle(strike ? Theme.textSecondary : Theme.textPrimary)
-                .lineSpacing(2)
+                .frame(width: 16)
+            Text(text.isEmpty ? "Empty" : text)
+                .font(.body)
+                .strikethrough(strike)
+                .foregroundStyle(strike ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Theme.margin)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(tint.opacity(0.10))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(strike ? "Original" : "Revised"): \(text)")
     }
 }
 
 // MARK: - Table
 
+/// Stacked comparison cards: the first cell is the row's headline, the rest are label over value.
 struct TableArtifactView: View {
     let table: TableArtifact
     var showsTitle: Bool = true
-    @Environment(\.fuseCompact) private var compact
 
     private static let maxRows = 80
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             if showsTitle, !table.title.isEmpty {
                 Text(table.title)
-                    .font(.title3.weight(.semibold))
+                    .font(.headline)
                     .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
             }
-            // Stacked cards read well on a phone: the first column is the row's title, the
-            // remaining columns become label + value lines. This never overflows.
-            VStack(spacing: 10) {
+            if table.rows.isEmpty {
+                EmptyArtifactCard(text: "No rows to compare.")
+            }
+            VStack(spacing: 12) {
                 ForEach(Array(table.rows.prefix(Self.maxRows).enumerated()), id: \.offset) { _, row in
-                    VStack(alignment: .leading, spacing: 8) {
-                        if let first = row.first, !first.isEmpty {
-                            Text(first)
-                                .font(.headline)
-                                .foregroundStyle(.primary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        ForEach(Array(row.dropFirst().enumerated()), id: \.offset) { index, value in
-                            let column = table.columns.indices.contains(index + 1) ? table.columns[index + 1] : ""
-                            VStack(alignment: .leading, spacing: 2) {
-                                if !column.isEmpty {
-                                    Text(column)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Text(value.isEmpty ? "–" : value)
-                                    .font(.subheadline)
+                    ResultCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            if let first = row.first, !first.isEmpty {
+                                Text(first)
+                                    .font(.headline)
                                     .foregroundStyle(.primary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
+                            ForEach(Array(row.dropFirst().enumerated()), id: \.offset) { index, value in
+                                let column = table.columns[safe: index + 1] ?? ""
+                                VStack(alignment: .leading, spacing: 2) {
+                                    if !column.isEmpty {
+                                        Text(column)
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    Text(value.isEmpty ? "–" : value)
+                                        .font(.body)
+                                        .foregroundStyle(.primary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
                         }
                     }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .accessibilityElement(children: .combine)
                 }
             }
-            if let note = table.note, !note.isEmpty {
+            if let note = table.note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
                 Text(note)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -341,34 +335,28 @@ struct TableArtifactView: View {
     }
 }
 
+// MARK: - Grade report
+
 struct GradeArtifactView: View {
     let report: GradeReport
-    @Environment(\.fuseCompact) private var compact
     @State private var ringShown = false
 
     private var fraction: Double? { Self.fraction(from: report.score, items: report.items) }
     private var correctCount: Int { report.items.filter(\.correct).count }
 
-    private var ringTint: Color {
-        guard let f = fraction else { return Theme.violet }
-        if f >= 0.7 { return ResultPalette.good }
-        if f >= 0.5 { return ResultPalette.warn }
-        return ResultPalette.bad
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             ResultCard {
-                HStack(spacing: compact ? 16 : 22) {
+                HStack(spacing: 16) {
                     ring
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(headline)
-                            .font(.fuseHeadline)
-                            .foregroundStyle(Theme.textPrimary)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
                         Text(subline)
-                            .font(.fuseBody)
-                            .foregroundStyle(Theme.textSecondary)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
@@ -376,34 +364,36 @@ struct GradeArtifactView: View {
             }
 
             if !report.items.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Eyebrow(text: "Answers")
+                ResultSection(title: "Answers") {
                     ResultCard(padding: 0) {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(report.items.indices, id: \.self) { index in
                                 let item = report.items[index]
                                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                                     Image(systemName: item.correct ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                        .font(.system(size: 17, weight: .semibold))
+                                        .font(.body)
                                         .foregroundStyle(item.correct ? ResultPalette.good : ResultPalette.bad)
-                                    VStack(alignment: .leading, spacing: 3) {
+                                        .frame(width: 22)
+                                        .accessibilityLabel(item.correct ? "Correct" : "Incorrect")
+                                    VStack(alignment: .leading, spacing: 2) {
                                         InlineText(text: item.question.isEmpty ? "Question \(index + 1)" : item.question)
                                         if !item.yourAnswer.isEmpty {
                                             Text("Your answer: \(item.yourAnswer)")
-                                                .font(.fuseCaption)
-                                                .foregroundStyle(Theme.textSecondary)
+                                                .font(.footnote)
+                                                .foregroundStyle(.secondary)
                                                 .fixedSize(horizontal: false, vertical: true)
                                         }
                                         if let feedback = item.feedback, !feedback.isEmpty {
-                                            InlineText(text: feedback, font: .fuseCaption, color: Theme.textTertiary)
+                                            InlineText(text: feedback, font: .footnote, color: .secondary)
                                         }
                                     }
                                     Spacer(minLength: 0)
                                 }
-                                .padding(.horizontal, 14)
+                                .padding(.horizontal, Theme.margin)
                                 .padding(.vertical, 12)
+                                .frame(minHeight: 44)
                                 if index < report.items.count - 1 {
-                                    Hairline().padding(.leading, 43)
+                                    Hairline().padding(.leading, Theme.margin + 22 + 12)
                                 }
                             }
                         }
@@ -413,26 +403,24 @@ struct GradeArtifactView: View {
             }
 
             if !report.weaknesses.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Eyebrow(text: "Weak spots")
+                ResultSection(title: "Weak spots") {
                     FlowLayout(spacing: 8) {
                         ForEach(Array(report.weaknesses.enumerated()), id: \.offset) { _, weakness in
                             Text(weakness)
-                                .font(.fuseCaption)
-                                .foregroundStyle(ResultPalette.bad)
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(.primary)
                                 .lineLimit(1)
-                                .padding(.horizontal, 10)
+                                .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Capsule().fill(ResultPalette.bad.opacity(0.12)))
-                                .overlay(Capsule().stroke(ResultPalette.bad.opacity(0.3), lineWidth: 1))
+                                .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
                         }
                     }
+                    .padding(.horizontal, 4)
                 }
             }
 
             if !report.nextSteps.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Eyebrow(text: "Next steps")
+                ResultSection(title: "Next steps") {
                     ChecklistArtifactView(
                         checklist: Checklist(title: "Next steps", items: report.nextSteps.map { Checklist.Item(text: $0) }),
                         showsHeader: false
@@ -445,32 +433,34 @@ struct GradeArtifactView: View {
 
     // MARK: Ring
 
+    /// 88pt accent ring on a system-fill track; the score sits inside.
     private var ring: some View {
-        let size: CGFloat = compact ? 96 : 110
         let value = fraction ?? 0
         return ZStack {
             Circle()
-                .stroke(.white.opacity(0.08), lineWidth: 9)
+                .stroke(Color(uiColor: .tertiarySystemFill), lineWidth: 8)
             Circle()
                 .trim(from: 0, to: ringShown ? CGFloat(value) : 0)
-                .stroke(ringTint, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(Theme.smooth.delay(0.15), value: ringShown)
-            VStack(spacing: 1) {
+            VStack(spacing: 0) {
                 Text(scoreLabel)
-                    .font(.system(size: scoreLabel.count > 4 ? 17 : 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font((scoreLabel.count > 4 ? Font.subheadline : Font.title3).weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                 if let f = fraction, !scoreLabel.contains("%") {
                     Text("\(Int((f * 100).rounded()))%")
-                        .font(.fuseCaption)
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(14)
+            .padding(12)
         }
-        .frame(width: size, height: size)
+        .frame(width: 88, height: 88)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Score \(scoreLabel)")
     }
 
     private var scoreLabel: String {
@@ -574,70 +564,77 @@ struct ImageArtifactView: View {
                     .frame(maxHeight: compact ? 360 : 420)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))
-                    .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
+                    .accessibilityLabel(image.caption ?? "Generated image")
 
                 if let caption = image.caption?.trimmingCharacters(in: .whitespacesAndNewlines), !caption.isEmpty {
-                    InlineText(text: caption, color: Theme.textSecondary)
+                    InlineText(text: caption, font: .footnote, color: .secondary)
+                        .padding(.horizontal, 4)
                 }
 
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     switch saveState {
                     case .idle:
-                        EnergyButton(title: "Save to Photos", symbol: "square.and.arrow.down") { save(ui) }
-                    case .saving:
-                        HStack(spacing: 8) {
-                            ProgressView().controlSize(.small).tint(Theme.textSecondary)
-                            Text("Saving…").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                        Button {
+                            save(ui)
+                        } label: {
+                            Label("Save to Photos", systemImage: "square.and.arrow.down")
                         }
-                        .padding(.horizontal, 15)
-                        .padding(.vertical, 10)
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
+                    case .saving:
+                        WorkingLabel(title: "Saving…")
                     case .saved:
-                        StatusPill(title: "Saved to Photos", symbol: "checkmark", tint: ResultPalette.good)
+                        StatusPill(title: "Saved to Photos", symbol: "checkmark")
                             .transition(.scale(scale: 0.9).combined(with: .opacity))
                     case .failed:
-                        EnergyButton(title: "Try again", symbol: "arrow.clockwise") { save(ui) }
+                        Button {
+                            save(ui)
+                        } label: {
+                            Label("Try again", systemImage: "arrow.clockwise")
+                        }
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
                     }
                 }
                 .animation(Theme.snappy, value: saveState)
 
                 if case .failed(let message) = saveState {
-                    Text(message)
-                        .font(.fuseCaption)
-                        .foregroundStyle(ResultPalette.bad)
-                        .fixedSize(horizontal: false, vertical: true)
+                    ErrorFootnote(message: message)
                 }
             } else {
                 ResultCard {
-                    VStack(alignment: .leading, spacing: 14) {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(LinearGradient(colors: [Theme.ink3, Theme.ink2, Theme.ink3],
-                                                 startPoint: .topLeading, endPoint: .bottomTrailing))
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Generating placeholder: a system fill that breathes gently.
+                        RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                            .fill(Color(uiColor: .tertiarySystemFill))
                             .frame(height: compact ? 160 : 200)
                             .overlay {
-                                VStack(spacing: 10) {
-                                    ProgressView().tint(Theme.textSecondary)
+                                VStack(spacing: 8) {
+                                    ProgressView()
                                     Text("Generating image…")
-                                        .font(.fuseCaption)
-                                        .foregroundStyle(Theme.textSecondary)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
                                 }
                             }
-                            .opacity(pulse ? 1 : 0.55)
+                            .opacity(pulse ? 1 : 0.6)
                             .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: pulse)
                             .onAppear { pulse = true }
+                            .accessibilityLabel("Generating image")
 
                         if !image.prompt.isEmpty {
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Eyebrow(text: "Prompt")
                                 Text(image.prompt)
-                                    .font(.fuseBody)
-                                    .foregroundStyle(Theme.textPrimary.opacity(0.9))
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         if let caption = image.caption?.trimmingCharacters(in: .whitespacesAndNewlines), !caption.isEmpty {
                             Text(caption)
-                                .font(.fuseCaption)
-                                .foregroundStyle(Theme.textSecondary)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }

@@ -470,12 +470,14 @@ struct MapSurfaceView: View {
     @FocusState private var searchFocused: Bool
     @State private var scrolledCardID: UUID?
 
+    private let selectedTint = Color(uiColor: .systemRed)
+
     var body: some View {
         ZStack(alignment: .top) {
             Map(position: $model.cameraPosition, selection: $model.selectedID) {
                 ForEach(model.results) { place in
                     Marker(place.name, systemImage: place.categorySymbol, coordinate: place.coordinate)
-                        .tint(place.id == model.selectedID ? Theme.magenta : SurfaceKind.maps.tint)
+                        .tint(place.id == model.selectedID ? selectedTint : SurfaceKind.maps.tint)
                         .tag(place.id)
                 }
             }
@@ -510,16 +512,18 @@ struct MapSurfaceView: View {
                 } else if let error = model.searchError {
                     HStack(spacing: 8) {
                         Image(systemName: "mappin.slash")
-                            .foregroundStyle(Theme.textTertiary)
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
                         Text(error)
-                            .font(.fuseCaption)
-                            .foregroundStyle(Theme.textSecondary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                     .glassEffect(.regular, in: .capsule)
-                    .padding(.bottom, 12)
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 10)
                     .transition(.opacity)
                 }
             }
@@ -539,13 +543,12 @@ struct MapSurfaceView: View {
     private var searchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.textTertiary)
+                .font(.body.weight(.medium))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
 
-            TextField("Search places", text: $model.query)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Theme.textPrimary)
-                .tint(Theme.cyan)
+            TextField("Search Maps", text: $model.query)
+                .font(.body)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
@@ -559,32 +562,34 @@ struct MapSurfaceView: View {
             if model.isSearching {
                 ProgressView()
                     .controlSize(.small)
-                    .tint(Theme.textSecondary)
             } else if !model.query.isEmpty || !model.results.isEmpty {
                 Button {
                     model.clearAll()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.textTertiary)
+                        .font(.body)
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 32, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
             }
         }
-        .padding(.horizontal, 12)
-        .frame(height: 34)
+        .padding(.leading, 14)
+        .padding(.trailing, 6)
+        .frame(minHeight: 44)
         .frame(maxWidth: .infinity)
         .glassEffect(.regular, in: .capsule)
     }
 
     private var quickChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ForEach(MapSurfaceModel.quickSearches) { item in
-                    Chip(title: item.title, symbol: item.symbol, tint: Theme.textPrimary) {
+                    Chip(title: item.title, symbol: item.symbol) {
                         model.quickSearch(item.title)
                     }
-                    .glassEffect(.regular, in: .capsule)
                 }
             }
             .padding(.horizontal, 10)
@@ -602,28 +607,30 @@ struct MapSurfaceView: View {
                     } label: {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: place.categorySymbol)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(SurfaceKind.maps.tint)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
                                 .frame(width: 30, height: 30)
-                                .background(SurfaceKind.maps.tint.opacity(0.14), in: Circle())
-                            VStack(alignment: .leading, spacing: 3) {
+                                .background(SurfaceKind.maps.tint, in: Circle())
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(place.name)
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
                                     .lineLimit(1)
                                 Text(place.address.isEmpty ? (place.category ?? "Place") : place.address)
-                                    .font(.fuseCaption)
-                                    .foregroundStyle(Theme.textSecondary)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
                                     .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
                             }
                             Spacer(minLength: 0)
                         }
                         .padding(12)
-                        .frame(width: 240, alignment: .leading)
-                        .background(Theme.ink2.opacity(0.92), in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))
+                        .frame(width: 220, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 16))
                     .id(place.id)
                 }
             }
@@ -637,38 +644,42 @@ struct MapSurfaceView: View {
     // MARK: Place card
 
     private func placeCard(_ place: MapPlace) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 Image(systemName: place.categorySymbol)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.black.opacity(0.85))
-                    .frame(width: 32, height: 32)
-                    .background(Theme.magenta, in: Circle())
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(selectedTint, in: Circle())
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(place.name)
-                        .font(.fuseHeadline)
-                        .foregroundStyle(Theme.textPrimary)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
                     if let category = place.category {
                         Text(category)
-                            .font(.fuseCaption)
-                            .foregroundStyle(Theme.textSecondary)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 4)
                 Button {
                     model.clearSelection()
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 28, height: 28)
-                        .background(.white.opacity(0.08), in: Circle())
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .offset(x: 8, y: -8)
+                .accessibilityLabel("Close")
             }
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 if !place.address.isEmpty {
                     detailRow("mappin.and.ellipse", place.address)
                 }
@@ -681,21 +692,21 @@ struct MapSurfaceView: View {
                 detailRow("location.north.line", place.coordinateText)
             }
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.ink2.opacity(0.94), in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
     }
 
     private func detailRow(_ symbol: String, _ text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.textTertiary)
-                .frame(width: 14)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .frame(width: 16)
+                .accessibilityHidden(true)
             Text(text)
-                .font(.fuseCaption)
-                .foregroundStyle(Theme.textSecondary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .textSelection(.enabled)
         }

@@ -18,7 +18,7 @@ struct MarkdownArtifactView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if blocks.isEmpty {
-                InlineText(text: markdown.isEmpty ? "Nothing to show." : markdown, color: Theme.textSecondary)
+                InlineText(text: markdown.isEmpty ? "Nothing to show." : markdown, color: .secondary)
             } else {
                 ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                     MarkdownBlockView(block: block)
@@ -260,16 +260,15 @@ struct MarkdownBlockView: View {
         case .heading(let level, let text):
             heading(level: level, text: text)
         case .paragraph(let text):
-            InlineText(text: text, color: Theme.textPrimary.opacity(0.92))
+            InlineText(text: text)
         case .list(let items):
             list(items)
         case .quote(let text):
             HStack(alignment: .top, spacing: 12) {
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(Theme.violet.opacity(0.8))
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(.tertiary)
                     .frame(width: 3)
-                InlineText(text: text, color: Theme.textSecondary)
-                    .italic()
+                InlineText(text: text, color: .secondary)
             }
             .fixedSize(horizontal: false, vertical: true)
             .padding(.vertical, 2)
@@ -282,29 +281,31 @@ struct MarkdownBlockView: View {
         }
     }
 
+    /// # → title3, ## → headline, ### and deeper → subheadline. All SF text styles.
     @ViewBuilder
     private func heading(level: Int, text: String) -> some View {
         let font: Font = switch level {
-        case 1: .system(size: 22, weight: .bold)
-        case 2: .system(size: 19, weight: .semibold)
-        default: .system(size: 16, weight: .semibold)
+        case 1: .title3.weight(.semibold)
+        case 2: .headline
+        default: .subheadline.weight(.semibold)
         }
         Text(InlineMarkdown.attributed(text))
             .font(font)
-            .foregroundStyle(level >= 3 ? Theme.textPrimary.opacity(0.9) : Theme.textPrimary)
+            .foregroundStyle(level >= 3 ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, level <= 2 ? 8 : 4)
     }
 
+    /// Hanging indent: a fixed-width marker column, text wraps under itself.
     private func list(_ items: [MarkdownBlock.ListItem]) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 6) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     marker(item.marker)
-                        .frame(width: 20, alignment: .trailing)
-                    InlineText(text: item.text, color: Theme.textPrimary.opacity(0.92))
+                        .frame(minWidth: 24, alignment: .trailing)
+                    InlineText(text: item.text)
                 }
-                .padding(.leading, CGFloat(item.level) * 18)
+                .padding(.leading, CGFloat(item.level) * 20)
             }
         }
     }
@@ -314,42 +315,42 @@ struct MarkdownBlockView: View {
         switch marker {
         case .bullet:
             Text("•")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(Theme.textTertiary)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.secondary)
         case .number(let n):
             Text("\(n).")
-                .font(.fuseMono)
-                .foregroundStyle(Theme.textSecondary)
+                .font(.body.monospacedDigit())
+                .foregroundStyle(.secondary)
         case .task(let done):
             Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 14, weight: .regular))
-                .foregroundStyle(done ? Theme.mint : Theme.textTertiary)
+                .font(.body)
+                .foregroundStyle(done ? Color.accentColor : Color(uiColor: .tertiaryLabel))
+                .accessibilityLabel(done ? "Done" : "To do")
         }
     }
 
+    /// Monospaced card: optional language row with Copy, then the code scrolling sideways.
     private func codeBlock(language: String?, code: String) -> some View {
         ResultCard(padding: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                if let language, !language.isEmpty {
-                    HStack {
-                        Text(language.uppercased())
-                            .font(.system(size: 10, weight: .bold))
-                            .tracking(0.8)
-                            .foregroundStyle(Theme.textTertiary)
-                        Spacer()
-                        CopyMiniButton(text: code)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Theme.ink3)
-                    Hairline()
+                HStack(spacing: 8) {
+                    Text((language?.isEmpty == false ? language! : "Code").uppercased())
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    CopyButton(text: code, size: .small)
                 }
+                .padding(.horizontal, Theme.margin)
+                .padding(.vertical, 8)
+                Hairline()
                 ScrollView(.horizontal, showsIndicators: false) {
                     Text(code)
                         .font(.fuseMono)
-                        .foregroundStyle(Theme.textPrimary.opacity(0.92))
+                        .foregroundStyle(.primary)
                         .textSelection(.enabled)
-                        .padding(14)
+                        .fixedSize(horizontal: true, vertical: true)
+                        .padding(Theme.margin)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))

@@ -92,122 +92,62 @@ final class NotesSurfaceModel: SurfaceModel {
 
 // MARK: - View
 
+/// Plain paper: the editor on the system background, a placeholder, and the character count
+/// in a small caption at the bottom right. Paste and clear live in the editor's own edit menu.
 struct NotesSurfaceView: View {
     @Bindable var model: NotesSurfaceModel
     @FocusState private var editorFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            ZStack(alignment: .topLeading) {
-                Theme.ink.ignoresSafeArea()
+        ZStack(alignment: .topLeading) {
+            Theme.ink.ignoresSafeArea()
 
-                TextEditor(text: $model.text)
-                    .scrollContentBackground(.hidden)
-                    .background(Color.clear)
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(Theme.textPrimary)
-                    .tint(SurfaceKind.notes.tint)
-                    .lineSpacing(4)
-                    .scrollIndicators(.hidden)
-                    .focused($editorFocused)
-                    .padding(.horizontal, 10)
-                    .padding(.top, 8)
-                    .padding(.bottom, 44)
+            TextEditor(text: $model.text)
+                .scrollContentBackground(.hidden)
+                .font(.body)
+                .foregroundStyle(.primary)
+                .scrollIndicators(.hidden)
+                .scrollDismissesKeyboard(.interactively)
+                .focused($editorFocused)
+                .padding(.horizontal, 11)
+                .padding(.top, 8)
+                .padding(.bottom, 28)
 
-                if model.text.isEmpty {
-                    Text("Type or paste anything…")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.textTertiary)
-                        .padding(.horizontal, 15)
-                        .padding(.top, 16)
-                        .allowsHitTesting(false)
-                }
-
-                footer
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            if model.text.isEmpty {
+                Text("Type or paste anything…")
+                    .font(.body)
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            Text(countLabel)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+                .animation(Theme.snappy, value: model.characterCount)
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.ink.ignoresSafeArea())
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { editorFocused = false }
+                    .fontWeight(.semibold)
+            }
+        }
         .onTapGesture {
             if model.text.isEmpty { editorFocused = true }
         }
     }
 
-    private var footer: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 5) {
-                Image(systemName: "note.text")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(SurfaceKind.notes.tint)
-                Text(countLabel)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-            }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 7)
-            .glassEffect(.regular, in: .capsule)
-
-            Spacer(minLength: 0)
-
-            if editorFocused {
-                Button {
-                    Haptics.tap()
-                    editorFocused = false
-                } label: {
-                    Image(systemName: "keyboard.chevron.compact.down")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .frame(width: 30, height: 30)
-                        .glassEffect(.regular.interactive(), in: .circle)
-                }
-                .buttonStyle(.plain)
-            }
-
-            if model.text.isEmpty {
-                Button {
-                    model.pasteFromClipboard()
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "doc.on.clipboard")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("Paste")
-                            .font(.fuseCaption)
-                    }
-                    .foregroundStyle(Theme.textPrimary)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 7)
-                    .glassEffect(.regular.interactive(), in: .capsule)
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    model.clear()
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("Clear")
-                            .font(.fuseCaption)
-                    }
-                    .foregroundStyle(Theme.textPrimary)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 7)
-                    .glassEffect(.regular.interactive(), in: .capsule)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(8)
-        .animation(Theme.snappy, value: model.text.isEmpty)
-        .animation(Theme.snappy, value: editorFocused)
-    }
-
     private var countLabel: String {
-        let words = model.wordCount
-        if words == 0 { return "Empty" }
-        return words == 1 ? "1 word" : "\(words) words"
+        let count = model.characterCount
+        return count == 1 ? "1 character" : "\(count) characters"
     }
 }

@@ -11,12 +11,15 @@ struct FuseSnippetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: result.artifact.symbol)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text(result.title)
                     .font(.headline)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             let summary = result.summary.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -25,6 +28,7 @@ struct FuseSnippetView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(4)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if case .image(let artifact) = result.artifact {
@@ -33,7 +37,7 @@ struct FuseSnippetView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: .infinity, maxHeight: 240)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
                         .accessibilityLabel(artifact.caption ?? result.title)
                 } else {
                     Text("The generated image could not be displayed.")
@@ -48,19 +52,21 @@ struct FuseSnippetView: View {
                     ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                         Text(row)
                             .font(.footnote)
+                            .foregroundStyle(.primary)
                             .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding(.top, 2)
             }
 
             Text("Fused from two screens")
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.tertiary)
                 .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(Theme.margin)
     }
 
     // MARK: Compact artifact rows

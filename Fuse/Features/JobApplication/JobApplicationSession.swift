@@ -289,6 +289,7 @@ final class JobApplicationSession {
             case .http(let status, _): return "AI preparation failed (\(status)). Check your connection and API settings, then retry."
             case .invalidImageCount, .invalidReference: return "The AI service could not read an input. Check your job and résumé, then retry."
             case .malformed: return "AI preparation returned an unreadable draft. Nothing was submitted; retry."
+            case .invalidImageCount, .invalidReference: return "AI preparation could not use the attached images. Nothing was submitted; retry."
             }
         }
         if let networkError = error as? URLError {
