@@ -30,6 +30,15 @@ struct DemoScenario: Identifiable {
 
     static let core: [DemoScenario] = [
         DemoScenario(
+            id: "job-application",
+            title: "Apply with a fold",
+            subtitle: "Job + résumé → demo application receipt",
+            symbol: "briefcase.fill",
+            left: .init(kind: .web, preset: .url(JobApplicationDemo.jobURL)),
+            right: .notes(JobApplicationDemo.resume),
+            instruction: "Tailor this fictional résumé to Bright Labs and submit to the demo employer inbox."
+        ),
+        DemoScenario(
             id: "theme-park",
             title: "Theme park, one day",
             subtitle: "Attraction page + map → itinerary",
