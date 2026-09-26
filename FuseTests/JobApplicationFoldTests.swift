@@ -53,6 +53,26 @@ final class JobApplicationFoldTests: XCTestCase {
         }
     }
 
+    @MainActor func testFileResumePairsWithJobInBothOrdersAndRejectsPartialText() async {
+        for reversed in [false, true] {
+            let model = AppModel()
+            let jobPane = reversed ? model.right : model.left
+            let resumePane = reversed ? model.left : model.right
+            jobPane.apply(.url(JobApplicationDemo.jobURL), as: .web)
+            resumePane.apply(.text(JobApplicationDemo.resume), as: .document)
+            XCTAssertNotNil(model.jobApplicationPair)
+            let captured = await model.jobApplicationPair!.resume.capture()
+            XCTAssertEqual(captured.text, JobApplicationDemo.resume)
+            model.activateJobApplicationIfRecognized()
+            XCTAssertTrue(model.jobDemoActive)
+            resumePane.apply(.text("Alex Morgan — incomplete résumé"), as: .document)
+            XCTAssertNil(model.jobApplicationPair)
+            model.activateJobApplicationIfRecognized()
+            XCTAssertFalse(model.jobDemoActive)
+            (jobPane.model as? WebSurfaceModel)?.stop()
+        }
+    }
+
     @MainActor func testPartialResumeAndUnrelatedBrowserDoNotActivateApplication() {
         let model = AppModel()
         model.left.apply(.url(JobApplicationDemo.jobURL), as: .web)

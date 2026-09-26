@@ -14,15 +14,21 @@ struct JobApplicationFoldGate {
 extension AppModel {
     /// Only the complete sample pair opts into automatic application delivery.
     /// Match the actual browser location and complete source text, never a keyword or headline.
-    var jobApplicationPair: (job: WebSurfaceModel, resume: NotesSurfaceModel)? {
+    var jobApplicationPair: (job: WebSurfaceModel, resume: any SurfaceModel)? {
         guard !left.isHome, !right.isHome else { return nil }
         for (jobModel, resumeModel) in [(left.model, right.model), (right.model, left.model)] {
             guard let job = jobModel as? WebSurfaceModel,
-                  let resume = resumeModel as? NotesSurfaceModel,
-                  job.currentURL == JobApplicationDemo.jobURL,
-                  JobApplicationDemo.normalize(resume.text) == JobApplicationDemo.normalize(JobApplicationDemo.resume)
+                  job.currentURL == JobApplicationDemo.jobURL else { continue }
+            let sourceText: String
+            if let notes = resumeModel as? NotesSurfaceModel {
+                sourceText = notes.text
+            } else if let file = resumeModel as? DocumentSurfaceModel,
+                      case .text(let text) = file.content {
+                sourceText = text
+            } else { continue }
+            guard JobApplicationDemo.normalize(sourceText) == JobApplicationDemo.normalize(JobApplicationDemo.resume)
             else { continue }
-            return (job, resume)
+            return (job, resumeModel)
         }
         return nil
     }

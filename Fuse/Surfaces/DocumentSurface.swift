@@ -40,7 +40,24 @@ final class DocumentSurfaceModel: SurfaceModel {
     @ObservationIgnored private var extractedText: String?
     @ObservationIgnored private var extractionTask: Task<Void, Never>?
 
-    init() {}
+    init() {
+        // Create the sample only once; never overwrite a file the user has edited.
+        if let url = Self.sampleResumeURL, !FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? JobApplicationDemo.resume.write(to: url, atomically: true, encoding: .utf8)
+        }
+    }
+
+    static var sampleResumeURL: URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Résumés", isDirectory: true)
+            .appendingPathComponent("Alex Morgan Résumé.txt")
+    }
+
+    func openSampleResume() {
+        guard let url = Self.sampleResumeURL else { return }
+        importFile(from: url)
+    }
 
     // MARK: SurfaceModel
 
@@ -380,6 +397,13 @@ struct DocumentSurfaceView: View {
                     model.pasteText()
                 }
             }
+
+            GlassButton(title: "Alex Morgan Résumé.txt", symbol: "doc.text") {
+                model.openSampleResume()
+            }
+            Text("Sample résumé · saved in Files")
+                .font(.fuseCaption)
+                .foregroundStyle(Theme.textSecondary)
 
             if let error = model.errorMessage {
                 Text(error)
