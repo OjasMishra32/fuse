@@ -25,6 +25,7 @@ enum Prompts {
     - Never say you cannot see something if it is on a screen. If a screen is truly empty, work with the other one plus the instruction.
     - Never invent coordinates. Only include latitude/longitude when the map screen provided them or the place is world-famous (and then be accurate).
     - Dates: today's date is given. Resolve relative dates ("next Friday") to absolute ISO-8601 local times.
+    - Style: plain Apple-like prose. Never use em dashes or en dashes anywhere (titles, day names, notes); use commas, periods or colons. Titles in sentence case, no trailing punctuation.
 
     ARTIFACT CATALOGUE — respond with exactly ONE of these inside "artifact":
     - {"type":"itinerary","destination":"…","days":[{"title":"Day 1 — Sat Oct 3","stops":[{"name":"…","time":"9:05 AM","note":"why / what to do","latitude":28.47,"longitude":-81.47}]}],"tips":["…"]}

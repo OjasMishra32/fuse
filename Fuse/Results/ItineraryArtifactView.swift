@@ -75,9 +75,8 @@ struct ItineraryArtifactView: View {
                 .annotationTitles(.hidden)
             }
         }
-        .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll, showsTraffic: false))
+        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll, showsTraffic: false))
         .mapControlVisibility(.hidden)
-        .environment(\.colorScheme, .dark)
         .frame(height: compact ? 200 : 220)
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))

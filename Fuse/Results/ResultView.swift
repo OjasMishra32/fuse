@@ -34,11 +34,11 @@ struct ResultView: View {
                     .reveal(appeared, index: 3)
             }
             .padding(.horizontal, gutter)
-            .padding(.top, compact ? 12 : 18)
+            .padding(.top, compact ? 8 : 12)
             .padding(.bottom, 36)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background { Theme.background }
+        .background { Theme.grouped.ignoresSafeArea() }
         .environment(\.fuseCompact, compact)
         .onAppear {
             guard !appeared else { return }
@@ -54,32 +54,39 @@ struct ResultView: View {
     // MARK: Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: compact ? 10 : 12) {
-            HStack(alignment: .center, spacing: 10) {
-                RecipeCapsule(title: result.recipe.fuseHumanized, symbol: result.artifact.symbol)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 10) {
+                Text(result.title)
+                    .font(compact ? .title.bold() : .largeTitle.bold())
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
-                GlassIconButton(symbol: "xmark", size: 32, tint: Theme.textSecondary) {
+                Button {
                     Haptics.tap()
                     onDismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.footnote.weight(.bold))
+                        .frame(width: 30, height: 30)
                 }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .accessibilityLabel("Close")
             }
 
             if !result.inputs.isEmpty {
-                inputsRow
+                Text(result.inputs.map(\.kind.title).joined(separator: " and "))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-
-            Text(result.title)
-                .font(compact ? .system(size: 24, weight: .bold) : .fuseTitle)
-                .foregroundStyle(Theme.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 2)
 
             if !result.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text(result.summary)
-                    .font(.fuseBody)
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(.body)
+                    .foregroundStyle(.primary)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 8)
             }
         }
     }
@@ -133,49 +140,76 @@ struct ResultView: View {
     // MARK: Follow-ups
 
     private var followUps: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Eyebrow(text: "Next")
-            FlowLayout(spacing: 8) {
-                ForEach(Array(result.followUps.enumerated()), id: \.offset) { _, suggestion in
-                    Chip(title: suggestion, symbol: "arrow.turn.down.right", tint: Theme.textPrimary) {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Next")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 16)
+            VStack(spacing: 0) {
+                ForEach(Array(result.followUps.enumerated()), id: \.offset) { index, suggestion in
+                    if index > 0 { Divider().padding(.leading, 16) }
+                    Button {
                         Haptics.tap()
                         onFollowUp(suggestion)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text(suggestion)
+                                .font(.body)
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
             }
+            .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
 
     // MARK: Actions
 
     private var actions: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Hairline()
-            FlowLayout(spacing: 10, rowSpacing: 10) {
-                EnergyButton(title: "Fuse again", symbol: "sparkles") {
-                    Haptics.medium()
-                    onRefuse()
-                }
-                GlassButton(title: "Share", symbol: "square.and.arrow.up") {
-                    Haptics.tap()
-                    showShare = true
-                }
-                GlassButton(title: copied ? "Copied" : "Copy", symbol: copied ? "checkmark" : "doc.on.doc") {
-                    UIPasteboard.general.string = result.plainText
-                    Haptics.soft()
-                    withAnimation(Theme.snappy) { copied = true }
-                    Task {
-                        try? await Task.sleep(for: .seconds(1.4))
-                        withAnimation(Theme.snappy) { copied = false }
-                    }
-                }
-                GlassButton(title: "Close", symbol: "xmark") {
-                    Haptics.tap()
-                    onDismiss()
-                }
+        HStack(spacing: 10) {
+            Button {
+                Haptics.medium()
+                onRefuse()
+            } label: {
+                Label("Fuse again", systemImage: "arrow.clockwise").fontWeight(.semibold)
             }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+
+            Button {
+                Haptics.tap()
+                showShare = true
+            } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+
+            Button {
+                UIPasteboard.general.string = result.plainText
+                Haptics.soft()
+                withAnimation(Theme.snappy) { copied = true }
+                Task {
+                    try? await Task.sleep(for: .seconds(1.4))
+                    withAnimation(Theme.snappy) { copied = false }
+                }
+            } label: {
+                Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
         }
-        .padding(.top, 4)
+        .padding(.top, 6)
     }
 }
 

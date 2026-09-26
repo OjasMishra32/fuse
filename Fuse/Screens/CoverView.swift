@@ -41,17 +41,26 @@ struct CoverView: View {
             FuseMark(progress: Double(model.readiness) / 2)
                 .frame(width: 44, height: 44)
                 .foregroundStyle(.primary)
+            Text(model.readiness == 0 ? "Nothing to fuse yet" : model.readiness == 1 ? "One screen is ready" : "Ready to fuse")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.primary)
             Text(model.readiness == 0
-                 ? "Open the phone. Put something on each screen. Close it."
-                 : model.readiness == 1 ? "One screen is ready. Open to add the other, or fuse it alone."
-                 : "Both screens are ready. Fold to fuse.")
-                .font(.body)
+                 ? "Open the phone and put something on each screen."
+                 : model.readiness == 1 ? "Open to add the other screen, or fuse this one alone."
+                 : "Fold to combine \(model.left.kind.title) and \(model.right.kind.title).")
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 280)
-            HStack(spacing: 10) {
-                screenDot(model.left)
-                screenDot(model.right)
+                .frame(maxWidth: 300)
+            if model.readiness > 0 {
+                VStack(spacing: 0) {
+                    screenRow(model.left)
+                    Divider().padding(.leading, 52)
+                    screenRow(model.right)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .frame(maxWidth: 360)
+                .padding(.top, 10)
             }
             Spacer()
             if model.readiness > 0 {
@@ -64,6 +73,26 @@ struct CoverView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
+    }
+
+    private func screenRow(_ pane: Pane) -> some View {
+        let surface = pane.model
+        return HStack(spacing: 12) {
+            AppGlyph(kind: pane.kind, size: 28)
+                .opacity(surface.hasContent ? 1 : 0.4)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(pane.kind.title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(surface.hasContent ? surface.headline : "Empty")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(surface.hasContent ? .primary : .tertiary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 
     private func screenDot(_ pane: Pane) -> some View {
