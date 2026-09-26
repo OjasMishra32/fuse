@@ -59,8 +59,7 @@ struct FuseEngine {
             try Task.checkCancellation()
             progress(.rendering)
             // Work from the actual photos when the screens have them, never from screenshots of pages.
-            let sources = [left.heroImage ?? (left.kind == .web ? nil : left.image),
-                           right.heroImage ?? (right.kind == .web ? nil : right.image)].compactMap { $0 }
+            let sources = [left.imageEditReference, right.imageEditReference].compactMap { $0 }
             let data: Data
             if sources.isEmpty {
                 data = try await client.imageGenerate(prompt: image.prompt)

@@ -73,7 +73,13 @@ struct SurfaceSnapshot {
     }
 
     var isEmpty: Bool {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && image == nil && metadata.isEmpty
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && image == nil && heroImage == nil && metadata.isEmpty
+    }
+
+    /// The same selection drives both binary uploads and prompt reference numbering.
+    /// Web edits use extracted photos, avoiding browser chrome in the rendered result.
+    var imageEditReference: UIImage? {
+        heroImage ?? (kind == .web ? nil : image)
     }
 
     static func empty(_ kind: SurfaceKind) -> SurfaceSnapshot {

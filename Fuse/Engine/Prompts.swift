@@ -49,8 +49,8 @@ enum Prompts {
     - {"type":"checklist","title":"…","items":[{"text":"…","detail":"…"}]}
       Use for: recipe + fridge photo (shopping list), event + packing, requirements + resume gaps.
     - {"type":"image_edit","prompt":"a precise description of ONE final image that combines what matters from both screens","caption":"…"}
-      Use when the user asks for an image, picture, painting, poster, merge or composite, or when both screens are essentially pictures. Both screens' main photos are supplied to the image model as inputs; write the prompt as the finished scene, never as two copies side by side.
-      Use when the useful relationship is visual composition: furniture + room → that furniture placed in that room; clothing + person → a try-on; subject + visual reference → edited photo. Prefer this over a description or comparison for these pairs, even without a spoken instruction. Both screens must contain visible source imagery; a product photo inside a web page or screenshot counts. Two screenshots of messages/documents still call for a text artifact unless the user requests an image.
+      Use when the user asks for an image, picture, painting, poster, merge or composite, or when the useful relationship is visual composition: furniture + room → that furniture placed in that room; clothing + person → a try-on; subject + visual reference → edited photo. Prefer this over a description or comparison for these visual pairs, even without a spoken instruction. A product photo inside a web page or screenshot counts as source imagery. Two screenshots of messages/documents still call for a text artifact unless the user requests an image.
+      The image model receives the main photos extracted from web pages when available, and image references from other surfaces. If no usable image references exist, it generates from your prompt. Write the prompt as one finished scene that reflects the requested medium, never as two copies side by side unless explicitly requested.
       Inspect BOTH images and infer their roles regardless of which side they occupy. Refer to LEFT and RIGHT explicitly in the prompt: identify the scene to preserve, the object/style to transfer, and its placement. For a room, preserve its architecture, camera viewpoint and existing decor; retain the furniture's design, material and color; match perspective, plausible scale, lighting, occlusion and contact shadows. Do not make a collage or side-by-side comparison unless asked. Remove source app chrome, price labels and product backgrounds from the composition. Treat physical fit as a visualization, not a measured guarantee. Explicit requests to compare, extract text or explain still win.
       Return only the edit prompt and caption, never image_base64. Suggest follow-ups that refine the placement or look using the same two source images.
     - {"type":"markdown","markdown":"…"}
@@ -70,12 +70,12 @@ enum Prompts {
             let meta = snapshot.metadata.keys.sorted().map { "\($0): \(snapshot.metadata[$0] ?? "")" }.joined(separator: " | ")
             lines.append("Facts: \(meta)")
         }
-        if snapshot.image != nil {
+        if snapshot.image != nil || snapshot.heroImage != nil {
             lines.append("(An image of this screen is attached.)")
         }
         let text = snapshot.text.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty {
-            lines.append(snapshot.image == nil ? "Content: (empty screen)" : "Content: see attached image")
+            lines.append(snapshot.image == nil && snapshot.heroImage == nil ? "Content: (empty screen)" : "Content: see attached image")
         } else {
             lines.append("Content:\n\(text)")
         }
@@ -110,9 +110,20 @@ enum Prompts {
         var sections = ["Create one finished image by combining the attached references."]
         var index = 0
         for (side, snapshot) in [("LEFT", left), ("RIGHT", right)] {
-            guard snapshot.image != nil else { continue }
+            guard snapshot.imageEditReference != nil else {
+                // A notes pane or a web page without an extracted photo still supplies
+                // context. Do not imply that its screenshot is part of the upload.
+                var context = snapshot
+                context.image = nil
+                context.heroImage = nil
+                sections.append("\(side) screen context (no image reference is attached for this screen):\n\(describe(context, side: side))")
+                continue
+            }
             index += 1
             sections.append("Reference image \(index) is the \(side) screen.\n\(describe(snapshot, side: side))")
+            if snapshot.heroImage != nil {
+                sections.append("This reference is the main photo extracted from that screen.")
+            }
         }
         sections.append("""
         Infer which reference is the base scene and which supplies the object or style, regardless of reference order. Use both when two are supplied. Follow the requested edit while preserving recognizable details from the sources.

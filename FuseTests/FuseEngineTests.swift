@@ -427,6 +427,136 @@ final class OpenAIImageTests: XCTestCase {
         }
     }
 
+    func testEngineUsesWebHeroInsteadOfPageScreenshotInEitherSourceOrder() async throws {
+        let screenshot = image(color: .green)
+        let hero = image(color: .red, size: CGSize(width: 24, height: 12))
+        let photo = image(color: .blue, size: CGSize(width: 12, height: 24))
+        let web = SurfaceSnapshot(kind: .web, title: "Chair listing", image: screenshot, heroImage: hero)
+        let room = SurfaceSnapshot(kind: .photo, title: "Room", image: photo)
+        let output = try XCTUnwrap(image(color: .yellow).pngData())
+        let router = try chatResponse([
+            "recipe": "room_preview", "title": "Chair in room", "summary": "A visual preview.",
+            "artifact": ["type": "image_edit", "prompt": "Place the listed chair in the room."]
+        ])
+        for (left, right, expectedImages) in [(web, room, [hero, photo]), (room, web, [photo, hero])] {
+            let fixture = try makeFixture(responses: [
+                "/v1/chat/completions": router,
+                "/v1/images/edits": imageResponse(output)
+            ])
+            defer { fixture.close() }
+
+            _ = try await FuseEngine(client: fixture.client).fuse(
+                left: left, right: right, instruction: "Put this chair in the room.", progress: { _ in }
+            )
+
+            XCTAssertEqual(fixture.state.requests.compactMap { $0.url?.path }, ["/v1/chat/completions", "/v1/images/edits"])
+            let parts = try multipartParts(XCTUnwrap(fixture.state.requests.last))
+            let files = parts.filter { $0.filename != nil }
+            XCTAssertEqual(files.compactMap(\.filename), ["image1.png", "image2.png"])
+            XCTAssertEqual(files.map(\.data), try expectedImages.map { try XCTUnwrap($0.pngData()) })
+            XCTAssertFalse(files.contains { $0.data == screenshot.pngData() }, "Browser chrome must not become an edit reference")
+            let prompt = try XCTUnwrap(parts.first { $0.name == "prompt" }?.text)
+            XCTAssertTrue(prompt.contains("Reference image 1 is the LEFT screen."))
+            XCTAssertTrue(prompt.contains("Reference image 2 is the RIGHT screen."))
+            let leftTitle = try XCTUnwrap(prompt.range(of: "Title: \(left.title)"))
+            let rightTitle = try XCTUnwrap(prompt.range(of: "Title: \(right.title)"))
+            XCTAssertLessThan(leftTitle.lowerBound, rightTitle.lowerBound)
+        }
+    }
+
+    func testEngineNumbersRightPhotoFirstWhenLeftWebHasNoHero() async throws {
+        let screenshot = image(color: .green)
+        let photo = image(color: .blue)
+        let fixture = try makeFixture(responses: [
+            "/v1/chat/completions": chatResponse([
+                "recipe": "photo_edit", "title": "Edited room", "summary": "A visual preview.",
+                "artifact": ["type": "image_edit", "prompt": "Apply the listing's style to the room."]
+            ]),
+            "/v1/images/edits": imageResponse(XCTUnwrap(image(color: .yellow).pngData()))
+        ])
+        defer { fixture.close() }
+
+        _ = try await FuseEngine(client: fixture.client).fuse(
+            left: SurfaceSnapshot(kind: .web, title: "Listing without a photo",
+                                  text: "Sale headline: Save 25% with code WINDOW.", image: screenshot,
+                                  metadata: ["color": "emerald", "material": "velvet"]),
+            right: SurfaceSnapshot(kind: .photo, title: "Room", image: photo),
+            instruction: "Apply the listing's style to the room.", progress: { _ in }
+        )
+
+        XCTAssertEqual(fixture.state.requests.compactMap { $0.url?.path }, ["/v1/chat/completions", "/v1/images/edits"])
+        let parts = try multipartParts(XCTUnwrap(fixture.state.requests.last))
+        let files = parts.filter { $0.filename != nil }
+        XCTAssertEqual(files.compactMap(\.filename), ["image1.png"])
+        XCTAssertEqual(files.map(\.data), [try XCTUnwrap(photo.pngData())])
+        let prompt = try XCTUnwrap(parts.first { $0.name == "prompt" }?.text)
+        XCTAssertTrue(prompt.contains("Reference image 1 is the RIGHT screen."))
+        XCTAssertFalse(prompt.contains("Reference image 1 is the LEFT screen."))
+        XCTAssertFalse(prompt.contains("Reference image 2"), "Reference numbers must count uploaded images, not screens")
+        XCTAssertTrue(prompt.contains("LEFT screen context (no image reference is attached for this screen)"))
+        XCTAssertTrue(prompt.contains("Title: Listing without a photo"))
+        XCTAssertTrue(prompt.contains("Sale headline: Save 25% with code WINDOW."))
+        XCTAssertTrue(prompt.contains("color: emerald"))
+        XCTAssertTrue(prompt.contains("material: velvet"))
+        let leftContext = try XCTUnwrap(prompt.components(separatedBy: "Reference image 1").first)
+        XCTAssertFalse(leftContext.contains("(An image of this screen is attached.)"), "Excluded screenshots must not be described as uploaded references")
+    }
+
+    func testEnginePreservesNotesContextBesidePhotoInEitherSourceOrder() async throws {
+        let notes = SurfaceSnapshot(kind: .notes, title: "Poster instructions",
+                                    text: "Use the exact headline: NIGHT BLOOM.", metadata: ["typeface": "serif"])
+        let photo = SurfaceSnapshot(kind: .photo, title: "Flower", image: image(color: .red))
+        for (left, right, imageSide, contextSide) in [(notes, photo, "RIGHT", "LEFT"), (photo, notes, "LEFT", "RIGHT")] {
+            let fixture = try makeFixture(responses: [
+                "/v1/chat/completions": chatResponse([
+                    "recipe": "poster", "title": "Flower poster", "summary": "A poster.",
+                    "artifact": ["type": "image_edit", "prompt": "Create a poster using the photo and the supplied headline."]
+                ]),
+                "/v1/images/edits": imageResponse(XCTUnwrap(image(color: .yellow).pngData()))
+            ])
+            defer { fixture.close() }
+
+            _ = try await FuseEngine(client: fixture.client).fuse(
+                left: left, right: right, instruction: "Make a poster from these screens.", progress: { _ in }
+            )
+
+            let parts = try multipartParts(XCTUnwrap(fixture.state.requests.last))
+            XCTAssertEqual(parts.filter { $0.filename != nil }.compactMap(\.filename), ["image1.png"])
+            let prompt = try XCTUnwrap(parts.first { $0.name == "prompt" }?.text)
+            XCTAssertTrue(prompt.contains("Reference image 1 is the \(imageSide) screen."))
+            XCTAssertFalse(prompt.contains("Reference image 2"))
+            XCTAssertTrue(prompt.contains("\(contextSide) screen context (no image reference is attached for this screen)"))
+            XCTAssertTrue(prompt.contains("Title: Poster instructions"))
+            XCTAssertTrue(prompt.contains("Use the exact headline: NIGHT BLOOM."))
+            XCTAssertTrue(prompt.contains("typeface: serif"))
+        }
+    }
+
+    func testHeroOnlyWebSnapshotIsNonemptyAndIncludedInPreviewOnEitherSide() async throws {
+        let web = SurfaceSnapshot(kind: .web, title: "Chair hero", heroImage: image(color: .red, size: CGSize(width: 1600, height: 800)))
+        let notes = SurfaceSnapshot(kind: .notes, title: "Instructions", text: "Keep the fabric.")
+        XCTAssertFalse(web.isEmpty, "A captured hero photo is content even without page text or a screenshot")
+        for (left, right) in [(web, notes), (notes, web)] {
+            let fixture = try makeFixture(response: chatResponse(["suggestions": []]))
+            defer { fixture.close() }
+
+            _ = try await IntentPreviewer(client: fixture.client).suggest(left: left, right: right)
+
+            XCTAssertEqual(fixture.state.requests.count, 1)
+            let content = try chatContent(XCTUnwrap(fixture.state.requests.first))
+            let images = try visionImages(content)
+            XCTAssertEqual(images.count, 1)
+            let received = try XCTUnwrap(images.first)
+            XCTAssertEqual(received.cgImage?.width, 512)
+            XCTAssertEqual(received.cgImage?.height, 256)
+            XCTAssertEqual(try dominantChannel(received), 0, "The preview must inspect the red hero photo")
+            let descriptions = content.compactMap { $0["text"] as? String }.joined(separator: "\n")
+            XCTAssertTrue(descriptions.contains("Title: Chair hero"))
+            XCTAssertTrue(descriptions.contains("Content: see attached image"))
+            XCTAssertFalse(descriptions.contains("Content: (empty screen)"))
+        }
+    }
+
     func testEngineHonorsExplicitTextResultsWithoutCallingImageEndpoint() async throws {
         let artifacts: [[String: Any]] = [
             ["type": "markdown", "markdown": "The armchair has blue upholstery."],
@@ -448,6 +578,46 @@ final class OpenAIImageTests: XCTestCase {
             XCTAssertEqual(result.artifact.typeName, try XCTUnwrap(artifact["type"] as? String))
             XCTAssertEqual(fixture.state.requests.compactMap { $0.url?.path }, ["/v1/chat/completions"])
         }
+    }
+
+    func testPreviewPreservesWebScreenshotAndLabeledHeroInEitherSourceOrder() async throws {
+        // The page may show a chart or selected variant absent from its social/hero image.
+        let web = SurfaceSnapshot(kind: .web, title: "Product page", image: image(color: .green), heroImage: image(color: .red))
+        let photo = SurfaceSnapshot(kind: .photo, title: "Room", image: image(color: .blue))
+        for (left, right, webSide, channels) in [(web, photo, "left", [1, 0, 2]), (photo, web, "right", [2, 1, 0])] {
+            let fixture = try makeFixture(response: chatResponse(["suggestions": []]))
+            defer { fixture.close() }
+
+            _ = try await IntentPreviewer(client: fixture.client).suggest(left: left, right: right)
+
+            XCTAssertEqual(fixture.state.requests.count, 1)
+            let content = try chatContent(XCTUnwrap(fixture.state.requests.first))
+            let images = try visionImages(content)
+            XCTAssertEqual(images.count, 3, "The extracted hero supplements the visible page screenshot")
+            XCTAssertEqual(try images.map { try dominantChannel($0) }, channels, "Keep screenshots and heroes grouped under the correct source")
+            let heroLabel = "The main photo on the \(webSide) screen:"
+            let labelIndex = try XCTUnwrap(content.firstIndex { $0["text"] as? String == heroLabel })
+            let nextPart = try XCTUnwrap(content.dropFirst(labelIndex + 1).first)
+            XCTAssertEqual(nextPart["type"] as? String, "image_url", "The hero label must immediately precede its image")
+            XCTAssertEqual(try dominantChannel(XCTUnwrap(visionImages([nextPart]).first)), 0)
+            let descriptions = content.compactMap { $0["text"] as? String }.joined(separator: "\n")
+            XCTAssertTrue(descriptions.contains("Title: Product page"))
+            XCTAssertTrue(descriptions.contains("Title: Room"))
+        }
+    }
+
+    func testPreviewDoesNotUploadTheSameScreenshotAndHeroInstanceTwice() async throws {
+        let sharedImage = image(color: .red)
+        let fixture = try makeFixture(response: chatResponse(["suggestions": []]))
+        defer { fixture.close() }
+
+        _ = try await IntentPreviewer(client: fixture.client).suggest(
+            left: SurfaceSnapshot(kind: .web, title: "One source image", image: sharedImage, heroImage: sharedImage),
+            right: SurfaceSnapshot(kind: .notes, title: "Instructions", text: "Use this photo.")
+        )
+
+        let content = try chatContent(XCTUnwrap(fixture.state.requests.first))
+        XCTAssertEqual(try visionImages(content).count, 1)
     }
 
     func testPreviewIncludesTwoSmallVisionImagesInSourceOrder() async throws {
