@@ -21,7 +21,6 @@ struct JobApplicationView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            navigationBar
             if isCompact {
                 compactContent
             } else {
@@ -31,31 +30,6 @@ struct JobApplicationView: View {
         .background(Theme.grouped)
         .transaction { if reduceMotion { $0.animation = nil } }
         .accessibilityIdentifier("jobApplicationExperience")
-    }
-
-    private var navigationBar: some View {
-        HStack(spacing: 12) {
-            Button(action: onBack) {
-                Label("Back to apps", systemImage: "chevron.left")
-                    .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
-            }
-            .disabled(session.isBusy)
-            .accessibilityLabel("Return to the two apps")
-            .accessibilityIdentifier("jobApplicationBack")
-            if session.hasSubmitted, let onRestart {
-                Button("Start again", action: onRestart)
-                    .font(.caption.weight(.semibold)).frame(minHeight: 44)
-            }
-            Spacer(minLength: 4)
-            Label("FUSE", systemImage: "sparkles")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(Theme.cyan)
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(Theme.cyan.opacity(0.10), in: Capsule())
-        }
-        .padding(.horizontal, isCompact ? 16 : 24)
-        .padding(.vertical, 6)
-        .background(Theme.ink)
     }
 
     private var compactContent: some View {
