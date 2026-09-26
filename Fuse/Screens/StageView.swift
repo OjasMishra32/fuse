@@ -9,6 +9,7 @@ import SwiftUI
 
 struct StageView: View {
     @Bindable var model: AppModel
+    @State private var breathe = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -29,8 +30,19 @@ struct StageView: View {
                 SeamView(model: model, fold: fold, size: size)
             }
             .frame(width: size.width, height: size.height)
+            .onChange(of: model.foldPrompt) { _, armed in
+                if armed {
+                    withAnimation(.easeInOut(duration: 1.15).repeatForever(autoreverses: true)) { breathe = true }
+                } else {
+                    withAnimation(Theme.smooth) { breathe = false }
+                }
+            }
         }
     }
+
+    /// Extra tilt while the app is inviting the fold.
+    private var inviteTilt: Double { breathe ? 7 : 0 }
+    private var inviteScale: CGFloat { breathe ? 0.985 : 1 }
 
     @ViewBuilder
     private func halves(fold: FoldGeometry, size: CGSize, progress: Double) -> some View {
@@ -44,15 +56,15 @@ struct StageView: View {
                 HalfView(pane: model.left, model: model)
                     .frame(width: max(fold.frame.minX, 0))
                     .if(progress > 0.01) { $0.clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous)) }
-                    .rotation3DEffect(.degrees(-tilt), axis: (x: 0, y: 1, z: 0), anchor: .trailing, perspective: 0.5)
-                    .scaleEffect(scale, anchor: .trailing)
+                    .rotation3DEffect(.degrees(-tilt - inviteTilt), axis: (x: 0, y: 1, z: 0), anchor: .trailing, perspective: 0.5)
+                    .scaleEffect(scale * inviteScale, anchor: .trailing)
                     .offset(x: shift)
                 Color.clear.frame(width: max(fold.frame.width, 0))
                 HalfView(pane: model.right, model: model)
                     .frame(width: max(size.width - fold.frame.maxX, 0))
                     .if(progress > 0.01) { $0.clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous)) }
-                    .rotation3DEffect(.degrees(tilt), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
-                    .scaleEffect(scale, anchor: .leading)
+                    .rotation3DEffect(.degrees(tilt + inviteTilt), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
+                    .scaleEffect(scale * inviteScale, anchor: .leading)
                     .offset(x: -shift)
             }
         } else {

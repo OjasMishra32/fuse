@@ -239,6 +239,8 @@ struct InstructionEditor: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Set") {
                         model.instruction = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        model.foldPrompt = !model.instruction.isEmpty && model.readiness > 0
+                        if model.foldPrompt { Haptics.medium() }
                         dismiss()
                     }
                     .fontWeight(.semibold)

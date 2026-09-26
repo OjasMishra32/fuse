@@ -55,6 +55,8 @@ final class AppModel {
     var showCommunity = false
     var showPaywall = false
     var showInstructionEditor = false
+    /// After typing an instruction: invite the fold (the halves breathe toward the hinge).
+    var foldPrompt = false
     var showScenarios = false
 
     // Intent preview: what the model thinks the fold should do, right now.
@@ -204,6 +206,7 @@ final class AppModel {
 
         Haptics.heavy()
         previewTask?.cancel()
+        foldPrompt = false
         withAnimation(Theme.melt) { foldProgress = 1 }
         phase = .fusing
         fusingStage = FuseEngine.Stage.reading.rawValue
@@ -279,6 +282,7 @@ final class AppModel {
         }
         instruction = ""
         screenshotMode = false
+        foldPrompt = false
         armed = true
     }
 

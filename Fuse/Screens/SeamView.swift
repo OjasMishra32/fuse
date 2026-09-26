@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 // MARK: - SeamView
 //
@@ -25,6 +26,7 @@ struct SeamView: View {
     var body: some View {
         ZStack {
             hairline
+            if model.foldPrompt && model.phase == .compose { sweep; foldInvite }
             core
         }
         .onAppear { pulse = true }
@@ -46,6 +48,48 @@ struct SeamView: View {
         }
         .position(center)
         .animation(Theme.smooth, value: model.readiness)
+    }
+
+    // MARK: Fold invite (after typing an instruction)
+
+    private var sweep: some View {
+        TimelineView(.animation) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            let phase = (t.truncatingRemainder(dividingBy: 1.6)) / 1.6
+            let length = fold.isVertical ? size.height : size.width
+            let offset = CGFloat(phase) * length - length / 2
+            Capsule()
+                .fill(Color.accentColor)
+                .frame(width: fold.isVertical ? 3 : 90, height: fold.isVertical ? 90 : 3)
+                .blur(radius: 1.5)
+                .opacity(0.9)
+                .position(x: center.x + (fold.isVertical ? 0 : offset), y: center.y + (fold.isVertical ? offset : 0))
+        }
+        .allowsHitTesting(false)
+    }
+
+    private var foldInvite: some View {
+        VStack(spacing: 6) {
+            Image(systemName: fold.isVertical ? "arrow.right.and.line.vertical.and.arrow.left" : "arrow.down.and.line.horizontal.and.arrow.up")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .symbolEffect(.pulse, options: .repeating)
+            Text("Fold to fuse")
+                .font(.headline)
+                .foregroundStyle(.primary)
+            Text(model.instruction)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 220)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .position(x: center.x, y: center.y - 150)
+        .transition(.scale(scale: 0.9).combined(with: .opacity))
+        .onTapGesture { withAnimation(Theme.snappy) { model.foldPrompt = false } }
     }
 
     // MARK: Core
@@ -214,9 +258,23 @@ struct SeamView: View {
     private func beginListening(fromIntent: Bool) {
         guard model.phase == .compose, !listening else { return }
         Haptics.medium()
+        // No microphone (the simulator, or a denied permission): type instead. Same fuse, no dead end.
+        guard AVAudioSession.sharedInstance().isInputAvailable else {
+            model.flash("No microphone here, type it instead")
+            model.showInstructionEditor = true
+            return
+        }
         listening = true
         awaitingTap = fromIntent
-        Task { await SpeechService.shared.start() }
+        Task {
+            await SpeechService.shared.start()
+            if let err = SpeechService.shared.errorText {
+                listening = false
+                awaitingTap = false
+                model.flash(err)
+                model.showInstructionEditor = true
+            }
+        }
     }
 
     private func endListeningAndFuse() {

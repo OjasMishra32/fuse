@@ -1,8 +1,17 @@
 const $ = (id) => document.getElementById(id);
-let lastText = "";
+let lastResult = null;
+let styleInjected = false;
 
 async function native(payload) {
   return browser.runtime.sendMessage(Object.assign({ kind: "status" }, payload));
+}
+
+function ensureStyle() {
+  if (styleInjected) return;
+  styleInjected = true;
+  const s = document.createElement("style");
+  s.textContent = window.FuseRender.css("");
+  document.head.appendChild(s);
 }
 
 async function refreshStatus() {
@@ -13,15 +22,16 @@ async function refreshStatus() {
   } catch (e) {}
   const s = await native({ kind: "status" });
   const box = $("pages");
-  box.innerHTML = "";
+  box.textContent = "";
   const pages = (s && s.pages) || [];
   if (pages.length === 0) {
-    box.innerHTML = '<div class="row muted">Read two pages in Safari, then come back.</div>';
+    const row = document.createElement("div"); row.className = "row muted"; row.textContent = "Read two pages in Safari, then come back."; box.appendChild(row);
   } else {
     for (const p of pages) {
       const row = document.createElement("div"); row.className = "row";
-      row.innerHTML = '<span class="dot"></span><span class="t"></span>';
-      row.querySelector(".t").textContent = p.title || p.url;
+      const dot = document.createElement("span"); dot.className = "dot";
+      const t = document.createElement("span"); t.className = "t"; t.textContent = p.title || p.url;
+      row.appendChild(dot); row.appendChild(t);
       box.appendChild(row);
     }
     if (pages.length === 1) {
@@ -32,26 +42,46 @@ async function refreshStatus() {
   if (s && s.hasKey === false) { $("err").style.display = "block"; $("err").textContent = "Open Fuse once so it can share its key with Safari."; }
 }
 
-async function fuse() {
+function setBusy(busy) {
+  const b = $("fuse");
+  b.disabled = busy;
+  b.classList.toggle("busy", busy);
+  $("fuse-label").textContent = busy ? "Fusing" : "Fuse these";
+}
+
+function showResult(r) {
+  ensureStyle();
+  lastResult = r;
+  const box = $("result");
+  box.textContent = "";
+  box.appendChild(window.FuseRender.render(r, { onFollowUp: (text) => fuse(text) }));
+  document.body.classList.add("done");
+  $("body").scrollTop = 0;
+  $("copy").textContent = "Copy";
+}
+
+async function fuse(instruction) {
   $("err").style.display = "none";
-  $("result").style.display = "none";
-  const b = $("fuse"); b.disabled = true; b.textContent = "Fusing…";
+  document.body.classList.remove("done");
+  const text = typeof instruction === "string" ? instruction : $("instruction").value;
+  if (typeof instruction === "string") $("instruction").value = instruction;
+  setBusy(true);
   try {
-    const r = await native({ kind: "fuse", instruction: $("instruction").value });
+    const r = await native({ kind: "fuse", instruction: text });
     if (!r || !r.ok) throw new Error((r && r.error) || "Couldn't fuse.");
-    $("rtitle").textContent = r.title || "Fused";
-    $("rsummary").textContent = r.summary || "";
-    $("rtext").textContent = r.text || "";
-    lastText = [r.title, r.summary, r.text].filter(Boolean).join("\n\n");
-    $("result").style.display = "block";
-    b.textContent = "Done";
+    showResult(r);
   } catch (e) {
     $("err").textContent = e.message; $("err").style.display = "block";
-    b.textContent = "Fuse these"; b.disabled = false;
+  } finally {
+    setBusy(false);
   }
 }
 
-$("fuse").addEventListener("click", fuse);
-$("again").addEventListener("click", () => { $("fuse").textContent = "Fuse these"; $("fuse").disabled = false; fuse(); });
-$("copy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(lastText); $("copy").textContent = "Copied"; } catch (e) {} });
+$("fuse").addEventListener("click", () => fuse());
+$("instruction").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("fuse").disabled) fuse(); });
+$("again").addEventListener("click", () => { document.body.classList.remove("done"); $("body").scrollTop = 0; });
+$("copy").addEventListener("click", async () => {
+  if (!lastResult) return;
+  try { await navigator.clipboard.writeText(window.FuseRender.plainText(lastResult)); $("copy").textContent = "Copied"; } catch (e) {}
+});
 refreshStatus();

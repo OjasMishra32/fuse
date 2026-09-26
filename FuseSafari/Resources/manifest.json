@@ -6,7 +6,7 @@
   "version": "1.0",
   "icons": { "128": "icon-128.png" },
   "background": { "scripts": ["background.js"], "persistent": false },
-  "content_scripts": [ { "js": ["content.js"], "matches": ["<all_urls>"], "run_at": "document_idle" } ],
+  "content_scripts": [ { "js": ["render.js", "content.js"], "matches": ["<all_urls>"], "run_at": "document_idle" } ],
   "browser_action": {
     "default_popup": "popup.html",
     "default_icon": "icon-128.png",

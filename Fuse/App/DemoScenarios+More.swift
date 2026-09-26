@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 // MARK: - More scenarios
 //
@@ -113,6 +114,97 @@ extension DemoScenario {
                 Hey Maya, heads up: rent is going to $1,700 starting Nov 1. Market's up a lot around campus. Let me know you're good with it. Thanks
                 """)),
             instruction: "Reply politely and cite the lease."
+        ),
+        DemoScenario(
+            id: "two-photos",
+            title: "Two photos, one image",
+            subtitle: "Portrait + painting → a new image",
+            symbol: "photo.on.rectangle.angled",
+            left: .init(kind: .photo, preset: .image(UIImage(named: "SamplePortrait") ?? UIImage())),
+            right: .init(kind: .photo, preset: .image(UIImage(named: "SampleStyle") ?? UIImage())),
+            instruction: "Repaint the portrait on the left in the style of the painting on the right, keeping the person recognizable."
+        ),
+        DemoScenario(
+            id: "make-test",
+            title: "Make me a test",
+            subtitle: "Rough outline + example test → full test",
+            symbol: "questionmark.circle",
+            left: .init(kind: .notes, preset: .text("""
+                Test outline, COP3502 module 4
+                - Big O: compare O(n log n) vs O(n^2), pick the bound for nested loops
+                - Recursion: base case, trace factorial/fibonacci, stack depth
+                - Linked lists: insert at head vs tail, why O(1) with a tail pointer
+                - Stacks and queues: which one for undo, which one for print jobs
+                - Binary search: precondition (sorted), midpoint math, when it fails
+                8 questions, mix of conceptual and short code reading
+                """)),
+            right: .init(kind: .notes, preset: .text("""
+                Example test, module 3 (format to copy)
+
+                1. Which statement about arrays in C++ is true?
+                   A. Size can change after creation   B. Elements are stored contiguously   C. Index starts at 1   D. They cannot hold structs
+                   Answer: B. Contiguous storage is what makes index math O(1).
+
+                2. What does this print?
+                   int a[3] = {4, 5, 6}; int* p = a; p++; cout << *p;
+                   A. 4   B. 5   C. 6   D. address
+                   Answer: B. p now points at a[1].
+
+                3. Short answer: explain why passing a large struct by value is slower than by reference.
+                   Answer: the whole struct is copied; a reference passes an address.
+                """)),
+            instruction: "Write the module 4 test in exactly this format."
+        ),
+        DemoScenario(
+            id: "fridge",
+            title: "What do I still need",
+            subtitle: "Recipe page + what's in the fridge → list",
+            symbol: "checklist",
+            left: .init(kind: .web, preset: .url(URL(string: "https://en.wikibooks.org/wiki/Cookbook:Chicken_Tikka_Masala")!)),
+            right: .init(kind: .notes, preset: .text("""
+                In the fridge and pantry right now:
+                chicken thighs (2 lb), plain yogurt, one onion, garlic, ginger, canned tomatoes, heavy cream,
+                basmati rice, cumin, turmeric, salt, pepper, vegetable oil
+                Missing anything else? Cooking for 4 tonight.
+                """)),
+            instruction: "Shopping list of only what I don't already have, then a 4-step cook order."
+        ),
+        DemoScenario(
+            id: "fix-the-bug",
+            title: "Fix the bug",
+            subtitle: "Crash log + source file → the patch",
+            symbol: "chevron.left.forwardslash.chevron.right",
+            left: .init(kind: .notes, preset: .text("""
+                Fatal error: Index out of range
+                Thread 1: EXC_BREAKPOINT
+                #0 Swift runtime failure: Index out of range
+                #1 CartViewModel.total() at CartViewModel.swift:14
+                #2 CartView.body.getter at CartView.swift:22
+                Reproduces when the cart is empty and the user opens the cart tab.
+                """)),
+            right: .init(kind: .notes, preset: .text("""
+                // CartViewModel.swift
+                import Foundation
+
+                struct Item { let name: String; let price: Double; let qty: Int }
+
+                final class CartViewModel {
+                    var items: [Item] = []
+
+                    func total() -> Double {
+                        var sum = 0.0
+                        for i in 0...items.count {
+                            sum += items[i].price * Double(items[i].qty)
+                        }
+                        return sum
+                    }
+
+                    func remove(at index: Int) {
+                        items.remove(at: index)
+                    }
+                }
+                """)),
+            instruction: "Find the bug, explain it in one sentence, and return the corrected file."
         ),
     ]
 }
