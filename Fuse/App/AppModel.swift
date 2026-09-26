@@ -55,6 +55,7 @@ final class AppModel {
     var showCommunity = false
     var showPaywall = false
     var showInstructionEditor = false
+    var showScenarios = false
 
     // Intent preview: what the model thinks the fold should do, right now.
     var suggestions: [FuseSuggestion] = []
@@ -67,13 +68,15 @@ final class AppModel {
     private var armed = true
     private var hintTask: Task<Void, Never>?
 
-    var readiness: Int { (left.model.hasContent ? 1 : 0) + (right.model.hasContent ? 1 : 0) }
+    var readiness: Int { (left.model.hasContent && !left.isHome ? 1 : 0) + (right.model.hasContent && !right.isHome ? 1 : 0) }
+    /// True when at least one half is showing the home screen (the system chrome shows then).
+    var anyHome: Bool { left.isHome || right.isHome }
     var isReady: Bool { readiness >= 1 }
     var isFusing: Bool { phase == .fusing }
 
     /// Changes whenever the live content of either screen changes. Drives the intent preview.
     var contentKey: String {
-        "\(left.kind.rawValue)|\(left.model.hasContent)|\(left.model.headline)|\(right.kind.rawValue)|\(right.model.hasContent)|\(right.model.headline)"
+        "\(left.kind.rawValue)|\(left.isHome)|\(left.model.hasContent)|\(left.model.headline)|\(right.kind.rawValue)|\(right.isHome)|\(right.model.hasContent)|\(right.model.headline)"
     }
 
     /// What the fold will do if the user doesn't say otherwise.

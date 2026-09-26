@@ -20,7 +20,9 @@ struct RootView: View {
                 CoverView(model: model)
             } else {
                 mainStage
-                topBar
+                if model.anyHome && model.phase == .compose {
+                    topBar.transition(.opacity)
+                }
             }
 
             if let hint = model.hint {
@@ -56,6 +58,7 @@ struct RootView: View {
         }
         .sheet(isPresented: $model.showPaywall) { PaywallView(onDismiss: { model.showPaywall = false }) }
         .sheet(isPresented: $model.showInstructionEditor) { InstructionEditor(model: model) }
+        .sheet(isPresented: $model.showScenarios) { ScenariosSheet(model: model) }
         .onChange(of: bus.serial) { _, _ in
             if let command = bus.take() { model.handle(command) }
         }
@@ -65,8 +68,11 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { model.importSharedItems() }
         }
-        .onOpenURL { _ in
+        .onOpenURL { url in
             model.importSharedItems()
+            if url.host == "screenshot" || url.path.contains("screenshot") {
+                Task { await model.fuseLatestScreenshot() }
+            }
         }
         .onAppear {
             RevenueCatService.shared.configure()
@@ -113,7 +119,7 @@ struct RootView: View {
     // MARK: Top bar
 
     private var topBar: some View {
-        HStack(spacing: 8) {
+        HStack {
             HingeBadge(hinge: model.hinge)
                 .padding(.leading, 4)
                 .contentShape(Rectangle())
@@ -121,44 +127,12 @@ struct RootView: View {
                     Haptics.rigid()
                     withAnimation(Theme.snappy) { model.showDevPanel.toggle() }
                 }
-
-            Spacer(minLength: 0)
-
-            GlassEffectContainer(spacing: 8) {
-                HStack(spacing: 8) {
-                    Menu {
-                        ForEach(DemoScenario.all) { scenario in
-                            Button {
-                                model.apply(scenario)
-                            } label: {
-                                Label(scenario.title, systemImage: scenario.symbol)
-                                Text(scenario.subtitle)
-                            }
-                        }
-                        Divider()
-                        Button(role: .destructive) { model.resetPanes() } label: {
-                            Label("Clear both screens", systemImage: "xmark.circle")
-                        }
-                    } label: {
-                        Image(systemName: "wand.and.stars")
-                            .font(.system(size: 14, weight: .medium))
-                            .frame(width: 34, height: 34)
-                    }
-                    .menuStyle(.button)
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
-
-                    GlassIconButton(symbol: "clock.arrow.circlepath", size: 34) { model.showHistory = true }
-                    GlassIconButton(symbol: "person.2", size: 34) { model.showCommunity = true }
-                    GlassIconButton(symbol: "gearshape", size: 34) { model.showSettings = true }
-                }
-            }
+            Spacer()
         }
         .padding(.horizontal, 12)
-        .padding(.top, 6)
+        .padding(.top, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .opacity(model.phase == .fusing ? 0 : 1)
-        .animation(Theme.snappy, value: model.phase == .fusing)
+        .animation(Theme.snappy, value: model.anyHome)
     }
 
     // MARK: Dev panel (triple-tap the wordmark)
@@ -273,5 +247,53 @@ struct InstructionEditor: View {
         }
         .presentationDetents([.medium])
         
+    }
+}
+
+
+// MARK: - Scenarios (demo content, presented like an app)
+
+struct ScenariosSheet: View {
+    @Bindable var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(DemoScenario.all) { scenario in
+                        Button {
+                            dismiss()
+                            model.apply(scenario)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: scenario.symbol)
+                                    .font(.body.weight(.medium))
+                                    .foregroundStyle(Color.accentColor)
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(scenario.title).foregroundStyle(.primary)
+                                    Text(scenario.subtitle).font(.footnote).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                } footer: {
+                    Text("Each scenario opens an app on each half of the phone. Then fold.")
+                }
+                Section {
+                    Button(role: .destructive) {
+                        dismiss()
+                        model.resetPanes()
+                    } label: {
+                        Label("Clear both halves", systemImage: "xmark.circle")
+                    }
+                }
+            }
+            .navigationTitle("Scenarios")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
     }
 }

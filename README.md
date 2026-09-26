@@ -39,6 +39,10 @@ Any two real apps, side by side on the Duo, no Fuse open:
 
 Fuse opens with the two halves of that screenshot as its two screens, melts them, and produces the result. Saying "Fuse my screen" to Siri does the same, and the plain **Fuse** shortcut with nothing on the halves uses the newest screenshot in Photos.
 
+## It is the phone
+
+Fuse opens to a home screen. Tap Safari and it opens on the left half; tap Maps and it opens on the right — the way two apps sit side by side on the Duo. Each half shows only that app and an iOS home bar. Fold the phone, and the two apps you were using become the two inputs.
+
 ## Using your phone, not an app
 
 Fuse is meant to sit underneath whatever you are already doing:

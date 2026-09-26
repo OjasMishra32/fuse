@@ -77,71 +77,143 @@ struct StageView: View {
 
 // MARK: - HalfView
 
-/// One half of the phone: the surface, full bleed, plus a small app pill at the bottom
-/// (like an app's name in the switcher) that opens the picker.
+/// One half of the phone. Either the home screen (a grid of apps) or one app, full bleed,
+/// with an iOS-style home bar to go back. No Fuse chrome.
 struct HalfView: View {
     let pane: Pane
     @Bindable var model: AppModel
-    @State private var showPicker = false
 
     var body: some View {
-        let surface = pane.model
         ZStack(alignment: .bottom) {
-            SurfaceRegistry.view(for: surface)
-                .id(pane.kind)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if pane.isHome {
+                HomeScreen(pane: pane, model: model)
+                    .transition(.asymmetric(insertion: .opacity, removal: .scale(scale: 1.08).combined(with: .opacity)))
+            } else {
+                SurfaceRegistry.view(for: pane.model)
+                    .id(pane.kind)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity), removal: .opacity))
 
-            appPill(surface: surface)
-                .padding(.bottom, 10)
+                homeBar
+                    .padding(.bottom, 6)
+            }
         }
         .background(Theme.ink)
         .clipped()
-        .sheet(isPresented: $showPicker) {
-            SurfacePicker(pane: pane) { kind in
-                Haptics.selection()
-                withAnimation(Theme.snappy) { pane.kind = kind }
-                showPicker = false
+        .animation(Theme.smooth, value: pane.isHome)
+        .animation(Theme.smooth, value: pane.kind)
+    }
+
+    /// The home indicator. Tap or swipe up to return this half to the home screen.
+    private var homeBar: some View {
+        Capsule()
+            .fill(.primary.opacity(0.35))
+            .frame(width: 96, height: 5)
+            .padding(.horizontal, 40)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                Haptics.soft()
+                pane.goHome()
+            }
+            .gesture(
+                DragGesture(minimumDistance: 12)
+                    .onEnded { value in
+                        if value.translation.height < -20 {
+                            Haptics.soft()
+                            pane.goHome()
+                        }
+                    }
+            )
+            .accessibilityLabel("Home")
+    }
+}
+
+// MARK: - Home screen (one half)
+
+struct HomeScreen: View {
+    let pane: Pane
+    @Bindable var model: AppModel
+    @Environment(\.colorScheme) private var scheme
+
+    private let columns = [GridItem(.adaptive(minimum: 68, maximum: 84), spacing: 14)]
+
+    var body: some View {
+        ZStack {
+            wallpaper
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 22) {
+                    LazyVGrid(columns: columns, spacing: 18) {
+                        ForEach(SurfaceRegistry.dockOrder) { kind in
+                            appButton(kind)
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 54)
+
+                    Divider().padding(.horizontal, 40).opacity(0.5)
+
+                    LazyVGrid(columns: columns, spacing: 18) {
+                        systemButton("Scenarios", symbol: "wand.and.stars", tint: Color(uiColor: .systemIndigo)) { model.showScenarios = true }
+                        systemButton("History", symbol: "clock.arrow.circlepath", tint: Color(uiColor: .systemOrange)) { model.showHistory = true }
+                        systemButton("Community", symbol: "person.2", tint: Color(uiColor: .systemGreen)) { model.showCommunity = true }
+                        systemButton("Settings", symbol: "gearshape", tint: Color(uiColor: .systemGray)) { model.showSettings = true }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 24)
+                }
             }
         }
     }
 
-    private func appPill(surface: any SurfaceModel) -> some View {
-        HStack(spacing: 6) {
-            Button {
-                showPicker = true
-            } label: {
-                HStack(spacing: 6) {
-                    AppGlyph(kind: pane.kind, size: 18)
-                    Text(surface.hasContent ? surface.headline : pane.kind.title)
-                        .font(.caption.weight(.medium))
-                        .lineLimit(1)
-                        .frame(maxWidth: 150)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.leading, 6)
-                .padding(.trailing, 10)
-                .padding(.vertical, 5)
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.capsule)
+    private var wallpaper: some View {
+        LinearGradient(
+            colors: scheme == .dark
+                ? [Color(red: 0.06, green: 0.09, blue: 0.16), Color(red: 0.02, green: 0.03, blue: 0.06)]
+                : [Color(red: 0.84, green: 0.91, blue: 1.0), Color(red: 0.96, green: 0.97, blue: 1.0)],
+            startPoint: .top, endPoint: .bottom
+        )
+        .ignoresSafeArea()
+    }
 
-            if surface.hasContent {
-                Button {
-                    Haptics.tap()
-                    withAnimation(Theme.snappy) { surface.reset() }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .frame(width: 26, height: 26)
-                }
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-                .accessibilityLabel("Clear this screen")
+    private func appButton(_ kind: SurfaceKind) -> some View {
+        let surface = pane.model(for: kind)
+        return Button {
+            Haptics.tap()
+            pane.open(kind)
+        } label: {
+            VStack(spacing: 6) {
+                AppGlyph(kind: kind, size: 60)
+                    .overlay(alignment: .topTrailing) {
+                        if surface.hasContent {
+                            Circle().fill(Color.accentColor).frame(width: 10, height: 10)
+                                .overlay(Circle().stroke(.white, lineWidth: 2))
+                                .offset(x: 3, y: -3)
+                        }
+                    }
+                Text(kind.title)
+                    .font(.caption2)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
             }
         }
-        .animation(Theme.snappy, value: surface.hasContent)
+        .buttonStyle(.plain)
+    }
+
+    private func systemButton(_ title: String, symbol: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(tint.gradient)
+                    .frame(width: 60, height: 60)
+                    .overlay(Image(systemName: symbol).font(.system(size: 28, weight: .medium)).foregroundStyle(.white))
+                Text(title)
+                    .font(.caption2)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -163,48 +235,3 @@ struct AppGlyph: View {
     }
 }
 
-// MARK: - SurfacePicker (a small home screen for one half)
-
-struct SurfacePicker: View {
-    let pane: Pane
-    var onPick: (SurfaceKind) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    private let columns = [GridItem(.adaptive(minimum: 76), spacing: 16)]
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: 20) {
-                    ForEach(SurfaceRegistry.dockOrder) { kind in
-                        Button {
-                            onPick(kind)
-                        } label: {
-                            VStack(spacing: 6) {
-                                AppGlyph(kind: kind, size: 58)
-                                Text(kind.title)
-                                    .font(.caption)
-                                    .foregroundStyle(.primary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .overlay(alignment: .topTrailing) {
-                            if kind == pane.kind {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.white, Color.accentColor)
-                                    .offset(x: 6, y: -6)
-                            }
-                        }
-                    }
-                }
-                .padding(24)
-            }
-            .navigationTitle("\(pane.side.title) screen")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
-            }
-        }
-        .presentationDetents([.height(300), .medium])
-    }
-}

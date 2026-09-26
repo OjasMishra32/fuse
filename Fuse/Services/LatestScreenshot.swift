@@ -11,13 +11,20 @@ enum LatestScreenshot {
         let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
         guard status == .authorized || status == .limited else { return nil }
 
-        let options = PHFetchOptions()
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.fetchLimit = 5
-        options.predicate = NSPredicate(format: "mediaSubtype & %d != 0", PHAssetMediaSubtype.photoScreenshot.rawValue)
-        let result = PHAsset.fetchAssets(with: .image, options: options)
-        guard let asset = result.firstObject else { return nil }
-        if let date = asset.creationDate, Date().timeIntervalSince(date) > maxAge { return nil }
+        func newest(screenshotsOnly: Bool) -> PHAsset? {
+            let options = PHFetchOptions()
+            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            options.fetchLimit = 3
+            if screenshotsOnly {
+                options.predicate = NSPredicate(format: "mediaSubtype & %d != 0", PHAssetMediaSubtype.photoScreenshot.rawValue)
+            }
+            let result = PHAsset.fetchAssets(with: .image, options: options)
+            guard let asset = result.firstObject else { return nil }
+            if let date = asset.creationDate, Date().timeIntervalSince(date) > maxAge { return nil }
+            return asset
+        }
+        // Real screenshots first; then anything just added (the simulator bridge imports plain PNGs).
+        guard let asset = newest(screenshotsOnly: true) ?? newest(screenshotsOnly: false) else { return nil }
 
         return await withCheckedContinuation { continuation in
             let req = PHImageRequestOptions()

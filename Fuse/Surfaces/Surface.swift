@@ -123,11 +123,24 @@ final class Pane: Identifiable {
 
     let side: Side
     var kind: SurfaceKind
+    /// True while this half shows the home screen instead of an app.
+    var isHome: Bool = true
     private var models: [SurfaceKind: any SurfaceModel] = [:]
 
     init(side: Side, kind: SurfaceKind) {
         self.side = side
         self.kind = kind
+    }
+
+    /// Open an app on this half.
+    func open(_ kind: SurfaceKind) {
+        self.kind = kind
+        isHome = false
+    }
+
+    /// Back to the home screen; the app keeps its state.
+    func goHome() {
+        isHome = true
     }
 
     nonisolated var id: String { side.rawValue }
@@ -143,11 +156,13 @@ final class Pane: Identifiable {
 
     func apply(_ preset: SurfacePreset, as kind: SurfaceKind) {
         self.kind = kind
+        isHome = false
         model(for: kind).apply(preset)
     }
 
     func reset() {
         models[kind]?.reset()
+        isHome = true
     }
 }
 
