@@ -159,8 +159,7 @@ struct ClipboardSurfaceView: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-                .fill(Theme.ink2)
+            Theme.ink2.ignoresSafeArea()
 
             if let content = model.content {
                 contentView(content)
@@ -170,10 +169,8 @@ struct ClipboardSurfaceView: View {
                     .transition(.opacity)
             }
         }
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))
-        .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.ink)
+        .background(Theme.ink.ignoresSafeArea())
         .animation(Theme.snappy, value: model.hasContent)
     }
 

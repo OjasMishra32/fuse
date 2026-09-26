@@ -484,7 +484,7 @@ struct MapSurfaceView: View {
             .onMapCameraChange(frequency: .onEnd) { context in
                 model.cameraDidSettle(context.region)
             }
-            .ignoresSafeArea(.keyboard)
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 searchField
@@ -527,7 +527,7 @@ struct MapSurfaceView: View {
             .animation(Theme.snappy, value: model.results.count)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.ink)
+        .background(Theme.ink.ignoresSafeArea())
         .onChange(of: model.selectedID) { _, newValue in
             model.selectionDidChange()
             if let newValue { scrolledCardID = newValue }

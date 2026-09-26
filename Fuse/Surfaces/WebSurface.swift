@@ -349,16 +349,14 @@ struct WebSurfaceView: View {
         VStack(spacing: 0) {
             addressBar
                 .padding(.horizontal, 10)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
+                .padding(.top, 6)
+                .padding(.bottom, 6)
 
             ZStack {
-                RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-                    .fill(Theme.ink2)
+                Theme.ink2
 
                 if model.hasContent {
                     WebViewContainer(webView: model.webView)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
                 } else {
                     emptyState
                 }
@@ -367,12 +365,10 @@ struct WebSurfaceView: View {
                     errorBanner(error)
                 }
             }
-            .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))
-            .padding(.horizontal, 8)
-            .padding(.bottom, 8)
+            .ignoresSafeArea(edges: [.bottom, .horizontal])
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.ink)
+        .background(Theme.ink.ignoresSafeArea())
         .onChange(of: addressFocused) { _, focused in
             model.isEditingAddress = focused
             if !focused, let url = model.currentURL, model.hasContent {

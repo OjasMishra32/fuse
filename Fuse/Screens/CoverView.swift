@@ -62,6 +62,8 @@ struct CoverView: View {
             }
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea()
     }
 
     private func screenDot(_ pane: Pane) -> some View {

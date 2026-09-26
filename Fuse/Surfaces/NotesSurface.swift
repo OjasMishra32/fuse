@@ -99,8 +99,7 @@ struct NotesSurfaceView: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-                    .fill(Theme.ink2)
+                Theme.ink.ignoresSafeArea()
 
                 TextEditor(text: $model.text)
                     .scrollContentBackground(.hidden)
@@ -127,11 +126,9 @@ struct NotesSurfaceView: View {
                 footer
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
-            .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))
-            .padding(8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.ink)
+        .background(Theme.ink.ignoresSafeArea())
         .onTapGesture {
             if model.text.isEmpty { editorFocused = true }
         }

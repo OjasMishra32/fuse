@@ -13,24 +13,21 @@ struct FusingView: View {
         TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             ZStack {
-                Theme.ink.opacity(compact ? 1 : 0.94).ignoresSafeArea()
+                Theme.ink.opacity(compact ? 1 : 0.94)
 
-                VStack(spacing: compact ? 22 : 26) {
+                VStack(spacing: compact ? 24 : 28) {
                     ring(t: t)
-                        .frame(width: 96, height: 96)
+                        .frame(width: 88, height: 88)
 
-                    VStack(spacing: 8) {
+                    VStack(spacing: 10) {
                         Text(model.fusingStage)
-                            .font(.headline)
+                            .font(.title3.weight(.semibold))
                             .foregroundStyle(.primary)
                             .contentTransition(.opacity)
                             .id(model.fusingStage)
                             .transition(.blurReplace)
-                        HStack(spacing: 8) {
+                        VStack(spacing: 6) {
                             inputLabel(model.left)
-                            Image(systemName: "plus")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.tertiary)
                             inputLabel(model.right)
                         }
                         if !model.instruction.isEmpty {
@@ -54,8 +51,10 @@ struct FusingView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .padding(24)
+                .padding(28)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .ignoresSafeArea()
         }
     }
 
@@ -80,13 +79,14 @@ struct FusingView: View {
 
     private func inputLabel(_ pane: Pane) -> some View {
         let surface = pane.model
-        return HStack(spacing: 5) {
-            AppGlyph(kind: pane.kind, size: 16)
+        return HStack(spacing: 7) {
+            AppGlyph(kind: pane.kind, size: 18)
             Text(surface.hasContent ? surface.headline : pane.kind.title)
-                .font(.footnote)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .truncationMode(.middle)
         }
-        .frame(maxWidth: 160)
+        .frame(maxWidth: 340)
     }
 }
