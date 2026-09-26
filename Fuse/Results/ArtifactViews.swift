@@ -292,92 +292,54 @@ struct TableArtifactView: View {
 
     private static let maxRows = 80
 
-    private var columns: [String] {
-        if !table.columns.isEmpty { return table.columns }
-        let width = table.rows.map(\.count).max() ?? 0
-        return (0..<width).map { "Column \($0 + 1)" }
-    }
-
-    private var rows: [[String]] { Array(table.rows.prefix(Self.maxRows)) }
-
-    /// Wide tables scroll sideways instead of squeezing every column.
-    private var isWide: Bool { columns.count > (compact ? 3 : 5) }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if showsTitle, !table.title.isEmpty {
                 Text(table.title)
-                    .font(.fuseHeadline)
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
             }
-
-            if columns.isEmpty {
-                ResultCard {
-                    Text("The table came back empty.")
-                        .font(.fuseBody)
-                        .foregroundStyle(Theme.textSecondary)
-                }
-            } else {
-                ResultCard(padding: 0) {
-                    Group {
-                        if isWide {
-                            ScrollView(.horizontal, showsIndicators: true) { grid }
-                        } else {
-                            grid
+            // Stacked cards read well on a phone: the first column is the row's title, the
+            // remaining columns become label + value lines. This never overflows.
+            VStack(spacing: 10) {
+                ForEach(Array(table.rows.prefix(Self.maxRows).enumerated()), id: \.offset) { _, row in
+                    VStack(alignment: .leading, spacing: 8) {
+                        if let first = row.first, !first.isEmpty {
+                            Text(first)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        ForEach(Array(row.dropFirst().enumerated()), id: \.offset) { index, value in
+                            let column = table.columns.indices.contains(index + 1) ? table.columns[index + 1] : ""
+                            VStack(alignment: .leading, spacing: 2) {
+                                if !column.isEmpty {
+                                    Text(column)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(value.isEmpty ? "–" : value)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             }
-
-            if table.rows.count > Self.maxRows {
-                Text("Showing the first \(Self.maxRows) of \(table.rows.count) rows.")
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textTertiary)
-            }
-
-            if let note = table.note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
-                InlineText(text: note, font: .fuseCaption, color: Theme.textSecondary)
+            if let note = table.note, !note.isEmpty {
+                Text(note)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
             }
         }
-    }
-
-    private var grid: some View {
-        Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
-            GridRow {
-                ForEach(columns.indices, id: \.self) { c in
-                    cell(columns[c], header: true, rowIndex: 0)
-                }
-            }
-            ForEach(rows.indices, id: \.self) { r in
-                GridRow {
-                    ForEach(columns.indices, id: \.self) { c in
-                        cell(rows[r][safe: c] ?? "", header: false, rowIndex: r)
-                    }
-                }
-            }
-        }
-    }
-
-    private func cell(_ text: String, header: Bool, rowIndex: Int) -> some View {
-        Text(header ? text : text.isEmpty ? "–" : text)
-            .font(header ? .system(size: 12, weight: .semibold) : .system(size: 14))
-            .tracking(header ? 0.3 : 0)
-            .foregroundStyle(header ? Theme.textSecondary : (text.isEmpty ? Theme.textTertiary : Theme.textPrimary))
-            .multilineTextAlignment(.leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: isWide ? 240 : .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(minWidth: isWide ? 110 : nil, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(header ? Theme.ink3 : (rowIndex % 2 == 1 ? Color.white.opacity(0.03) : Color.clear))
-            .overlay(alignment: .bottom) {
-                if header { Hairline() }
-            }
     }
 }
-
-// MARK: - Grade report
 
 struct GradeArtifactView: View {
     let report: GradeReport
