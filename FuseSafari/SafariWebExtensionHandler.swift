@@ -26,7 +26,9 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 let now = Date().timeIntervalSince1970
                 if now - last < 15, let data = SharedInbox.defaults?.data(forKey: SharedInbox.lastBackgroundResultKey),
                    let cached = try? JSONDecoder().decode(FuseResult.self, from: data) {
-                    reply(context, ["ok": true, "title": cached.title, "summary": cached.summary, "text": cached.artifact.compactText, "recipe": cached.recipe])
+                    var payload: [String: Any] = ["ok": true, "title": cached.title, "summary": cached.summary, "text": cached.artifact.compactText, "recipe": cached.recipe, "type": cached.artifact.typeName]
+                    if let adata = try? JSONEncoder().encode(cached.artifact), let json = try? JSONSerialization.jsonObject(with: adata) { payload["artifact"] = json }
+                    reply(context, payload)
                     return
                 }
                 SharedInbox.defaults?.set(now, forKey: "fuse.lastFoldFuseAt")
@@ -91,14 +93,20 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             if let data = try? JSONEncoder().encode(result) {
                 SharedInbox.defaults?.set(data, forKey: SharedInbox.lastBackgroundResultKey)
             }
-            reply(context, [
+            var payload: [String: Any] = [
                 "ok": true,
                 "title": result.title,
                 "summary": result.summary,
                 "text": result.artifact.compactText,
                 "recipe": result.recipe,
-                "followUps": result.followUps
-            ])
+                "followUps": result.followUps,
+                "type": result.artifact.typeName
+            ]
+            if let data = try? JSONEncoder().encode(result.artifact),
+               let json = try? JSONSerialization.jsonObject(with: data) {
+                payload["artifact"] = json
+            }
+            reply(context, payload)
         } catch {
             reply(context, ["ok": false, "error": error.localizedDescription])
         }
