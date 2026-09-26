@@ -43,14 +43,14 @@ struct StageView: View {
             HStack(spacing: 0) {
                 HalfView(pane: model.left, model: model)
                     .frame(width: max(fold.frame.minX, 0))
-                    .clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous))
+                    .if(progress > 0.01) { $0.clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous)) }
                     .rotation3DEffect(.degrees(-tilt), axis: (x: 0, y: 1, z: 0), anchor: .trailing, perspective: 0.5)
                     .scaleEffect(scale, anchor: .trailing)
                     .offset(x: shift)
                 Color.clear.frame(width: max(fold.frame.width, 0))
                 HalfView(pane: model.right, model: model)
                     .frame(width: max(size.width - fold.frame.maxX, 0))
-                    .clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous))
+                    .if(progress > 0.01) { $0.clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous)) }
                     .rotation3DEffect(.degrees(tilt), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
                     .scaleEffect(scale, anchor: .leading)
                     .offset(x: -shift)
@@ -59,14 +59,14 @@ struct StageView: View {
             VStack(spacing: 0) {
                 HalfView(pane: model.left, model: model)
                     .frame(height: max(fold.frame.minY, 0))
-                    .clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous))
+                    .if(progress > 0.01) { $0.clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous)) }
                     .rotation3DEffect(.degrees(tilt), axis: (x: 1, y: 0, z: 0), anchor: .bottom, perspective: 0.5)
                     .scaleEffect(scale, anchor: .bottom)
                     .offset(y: shift)
                 Color.clear.frame(height: max(fold.frame.height, 0))
                 HalfView(pane: model.right, model: model)
                     .frame(height: max(size.height - fold.frame.maxY, 0))
-                    .clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous))
+                    .if(progress > 0.01) { $0.clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous)) }
                     .rotation3DEffect(.degrees(-tilt), axis: (x: 1, y: 0, z: 0), anchor: .top, perspective: 0.5)
                     .scaleEffect(scale, anchor: .top)
                     .offset(y: -shift)
@@ -98,8 +98,7 @@ struct HalfView: View {
                     .padding(.bottom, 6)
             }
         }
-        .background(Theme.ink)
-        .clipped()
+        .background(Theme.ink.ignoresSafeArea())
         .animation(Theme.smooth, value: pane.isHome)
         .animation(Theme.smooth, value: pane.kind)
     }

@@ -39,9 +39,9 @@ struct SeamView: View {
         let color = model.readiness == 2 ? Color.accentColor.opacity(0.55) : Theme.line
         return Group {
             if fold.isVertical {
-                Rectangle().fill(color).frame(width: 1, height: size.height)
+                Rectangle().fill(color).frame(width: 1, height: size.height + 300)
             } else {
-                Rectangle().fill(color).frame(width: size.width, height: 1)
+                Rectangle().fill(color).frame(width: size.width + 300, height: 1)
             }
         }
         .position(center)
@@ -53,9 +53,19 @@ struct SeamView: View {
     private var core: some View {
         Group {
             if fold.isVertical {
-                VStack(spacing: 10) { coreOrb; micButton; instructionCapsule; suggestionStrip(vertical: true) }
+                VStack(spacing: 12) {
+                    GlassEffectContainer(spacing: 8) {
+                        VStack(spacing: 8) { coreOrb; micButton }
+                    }
+                    intentPill
+                }
             } else {
-                HStack(spacing: 10) { suggestionStrip(vertical: false); instructionCapsule; micButton; coreOrb }
+                HStack(spacing: 12) {
+                    intentPill
+                    GlassEffectContainer(spacing: 8) {
+                        HStack(spacing: 8) { micButton; coreOrb }
+                    }
+                }
             }
         }
         .position(center)
@@ -93,7 +103,7 @@ struct SeamView: View {
         ZStack {
             Circle()
                 .fill(.clear)
-                .frame(width: 34, height: 34)
+                .frame(width: 36, height: 36)
                 .glassEffect(.regular.interactive(), in: .circle)
             Image(systemName: listening ? "waveform" : "mic.fill")
                 .font(.system(size: 13, weight: .medium))
@@ -120,93 +130,69 @@ struct SeamView: View {
         .accessibilityHint("Hold, say what to make, let go")
     }
 
+    // MARK: One pill: what the fold will do. Tap for the alternatives.
+
     @ViewBuilder
-    private var instructionCapsule: some View {
-        let text = listening ? (SpeechService.shared.transcript.isEmpty ? "Listening…" : SpeechService.shared.transcript) : model.instruction
-        if !text.isEmpty {
-            HStack(spacing: 6) {
-                Image(systemName: listening ? "waveform" : "text.quote")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(text)
-                    .font(.footnote)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                if !listening {
-                    Button {
-                        Haptics.tap()
+    private var intentPill: some View {
+        if model.phase == .compose {
+            if listening {
+                pillLabel(symbol: "waveform", text: SpeechService.shared.transcript.isEmpty ? "Listening…" : SpeechService.shared.transcript, prominent: true)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+            } else if !model.instruction.isEmpty {
+                Menu {
+                    Button("Change…", systemImage: "keyboard") { model.showInstructionEditor = true }
+                    Button("Clear instruction", systemImage: "xmark.circle", role: .destructive) {
                         withAnimation(Theme.snappy) { model.instruction = ""; model.chosenSuggestion = nil }
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.tertiary)
                     }
-                    .buttonStyle(.plain)
+                } label: {
+                    pillLabel(symbol: "text.quote", text: "Fold: \(model.instruction)", prominent: true)
                 }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+            } else if let top = model.defaultSuggestion {
+                Menu {
+                    ForEach(model.suggestions) { s in
+                        Button(s.title, systemImage: s.resolvedSymbol) { model.choose(s) }
+                    }
+                    Divider()
+                    Button("Type an instruction…", systemImage: "keyboard") { model.showInstructionEditor = true }
+                } label: {
+                    pillLabel(symbol: top.resolvedSymbol, text: "Fold: \(top.title)", prominent: true)
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+            } else if model.isPreviewing {
+                pillLabel(symbol: "circle.dotted", text: "Reading both screens", prominent: false)
+                    .transition(.opacity)
+            } else if model.readiness > 0 {
+                Button {
+                    model.showInstructionEditor = true
+                } label: {
+                    pillLabel(symbol: "keyboard", text: "Fold, or say what to make", prominent: false)
+                }
+                .buttonStyle(.plain)
+                .transition(.opacity)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(Color(uiColor: .secondarySystemFill), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .frame(maxWidth: 220)
-            .transition(.scale(scale: 0.9).combined(with: .opacity))
-            .onTapGesture { if !listening { model.showInstructionEditor = true } }
-        } else {
-            Button {
-                model.showInstructionEditor = true
-            } label: {
-                Image(systemName: "keyboard")
-                    .font(.caption.weight(.medium))
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .accessibilityLabel("Type an instruction")
         }
     }
 
-    // MARK: Suggestions
-
-    @ViewBuilder
-    private func suggestionStrip(vertical: Bool) -> some View {
-        if model.phase == .compose {
-            let chips = Group {
-                if model.isPreviewing && model.suggestions.isEmpty {
-                    HStack(spacing: 6) {
-                        Circle().fill(Color.accentColor).frame(width: 5, height: 5)
-                            .opacity(pulse ? 1 : 0.3)
-                            .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
-                        Text("Reading both screens")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    .transition(.opacity)
-                }
-                ForEach(Array(model.suggestions.enumerated()), id: \.element.id) { index, s in
-                    let isDefault = model.defaultSuggestion?.id == s.id
-                    Button {
-                        model.choose(s)
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: s.resolvedSymbol)
-                            Text(isDefault ? "Fold: \(s.title)" : s.title)
-                                .lineLimit(1)
-                        }
-                        .font(.footnote.weight(isDefault ? .semibold : .regular))
-                    }
-                    .buttonStyle(isDefault ? AnyPrimitiveButtonStyle(.borderedProminent) : AnyPrimitiveButtonStyle(.bordered))
-                    .buttonBorderShape(.capsule)
-                    .controlSize(.small)
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
-                    .animation(Theme.snappy.delay(Double(index) * 0.05), value: model.suggestions)
-                }
-            }
-            if vertical {
-                VStack(spacing: 6) { chips }.frame(maxWidth: 220)
-            } else {
-                HStack(spacing: 6) { chips }
-            }
+    private func pillLabel(symbol: String, text: String, prominent: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.footnote.weight(.semibold))
+            Text(text)
+                .font(.footnote.weight(prominent ? .semibold : .regular))
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
+        .foregroundStyle(prominent ? Color.accentColor : Color.secondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .frame(maxWidth: 240)
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     // MARK: Pinch along the seam
