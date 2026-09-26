@@ -69,10 +69,7 @@ struct RootView: View {
             if phase == .active { model.importSharedItems() }
         }
         .onOpenURL { url in
-            model.importSharedItems()
-            if url.host == "screenshot" || url.path.contains("screenshot") {
-                Task { await model.fuseLatestScreenshot() }
-            }
+            model.handle(url: url)
         }
         .onAppear {
             RevenueCatService.shared.configure()

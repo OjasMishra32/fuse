@@ -444,6 +444,45 @@ final class AppModel {
         }
     }
 
+    // MARK: Deep links (fuse://…) — Shortcuts, the extensions, and remote control
+
+    /// fuse://demo?id=theme-park
+    /// fuse://stage?side=left&url=https://…            (a page)
+    /// fuse://stage?side=right&place=Name&lat=…&lon=…  (a map pin)
+    /// fuse://stage?side=left&text=…                   (a note)
+    /// fuse://fuse   fuse://home   fuse://screenshot   fuse://inbox
+    func handle(url: URL) {
+        importSharedItems()
+        let host = url.host ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        func value(_ name: String) -> String? { q.first { $0.name == name }?.value }
+        switch host {
+        case "demo":
+            if let id = value("id"), let s = DemoScenario.all.first(where: { $0.id == id }) { apply(s) }
+        case "stage":
+            let pane = value("side") == "right" ? right : left
+            if phase != .compose { dismissResult() }
+            if let u = value("url"), let link = URL(string: u) {
+                pane.apply(.url(link), as: .web)
+            } else if let name = value("place"), let lat = value("lat").flatMap(Double.init), let lon = value("lon").flatMap(Double.init) {
+                pane.apply(.place(name: name, latitude: lat, longitude: lon), as: .maps)
+            } else if let text = value("text") {
+                let kind = SurfaceKind(rawValue: value("kind") ?? "") ?? .notes
+                pane.apply(.text(text), as: kind)
+            }
+            if let text = value("instruction") { instruction = text }
+            Haptics.tap()
+        case "fuse":
+            fuse(trigger: .intent)
+        case "home":
+            left.goHome(); right.goHome()
+        case "screenshot":
+            Task { await fuseLatestScreenshot() }
+        default:
+            break
+        }
+    }
+
     // MARK: Commands from intents / Back Tap / Shortcuts
 
     func handle(_ command: AppCommand) {
