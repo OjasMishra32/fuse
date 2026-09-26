@@ -56,6 +56,8 @@ targets:
           - group.com.ojasvamishra.fuse
     dependencies:
       - target: FuseShare
+      - target: FuseSafari
+      - target: FuseControls
       - package: RevenueCat
         product: RevenueCat
       - package: RevenueCat
@@ -151,5 +153,69 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ojasvamishra.fuse.share
+        SKIP_INSTALL: "YES"
+        GENERATE_INFOPLIST_FILE: "NO"
+
+  FuseSafari:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: FuseSafari/SafariWebExtensionHandler.swift
+      - path: Shared
+      - path: FuseSafari/Resources/manifest.json
+        buildPhase: resources
+      - path: FuseSafari/Resources/background.js
+        buildPhase: resources
+      - path: FuseSafari/Resources/content.js
+        buildPhase: resources
+      - path: FuseSafari/Resources/popup.html
+        buildPhase: resources
+      - path: FuseSafari/Resources/popup.js
+        buildPhase: resources
+      - path: FuseSafari/Resources/icon-128.png
+        buildPhase: resources
+      - path: FuseSafari/Resources/_locales
+        type: folder
+        buildPhase: resources
+    entitlements:
+      path: FuseSafari/FuseSafari.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.ojasvamishra.fuse
+    info:
+      path: FuseSafari/Info.plist
+      properties:
+        CFBundleDisplayName: Fuse
+        CFBundleName: Fuse
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.Safari.web-extension
+          NSExtensionPrincipalClass: SafariWebExtensionHandler
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ojasvamishra.fuse.safari
+        SKIP_INSTALL: "YES"
+        GENERATE_INFOPLIST_FILE: "NO"
+
+  FuseControls:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: FuseControls
+      - path: Shared
+    entitlements:
+      path: FuseControls/FuseControls.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.ojasvamishra.fuse
+    info:
+      path: FuseControls/Info.plist
+      properties:
+        CFBundleDisplayName: Fuse
+        CFBundleName: Fuse
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ojasvamishra.fuse.controls
         SKIP_INSTALL: "YES"
         GENERATE_INFOPLIST_FILE: "NO"

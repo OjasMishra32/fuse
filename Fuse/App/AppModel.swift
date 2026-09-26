@@ -315,8 +315,65 @@ final class AppModel {
 
     // MARK: Share sheet inbox ("Send to Fuse" from any app)
 
-    /// Pull anything the share extension parked and put it on the chosen half.
+    /// Everything that arrives from outside the app, in priority order: explicit hand-offs
+    /// (share sheet, Safari popup, intents), then the pages the Safari extension saw the user
+    /// read, then the clipboard. Called whenever Fuse comes to the front.
     func importSharedItems() {
+        let command = FuseCommandFlag.take()
+        importInbox()
+        if left.isHome && right.isHome {
+            stageRecentPages()
+            offerClipboard()
+        }
+        if command == "fuse" {
+            if readiness > 0 { fuse(trigger: .intent) } else { flash("Read something in Safari or copy something first") }
+        } else if isClosed && readiness == 2 && phase == .compose && lastStagedFromRecents {
+            // Opened from the cover with the phone already folded: the fold is the command.
+            fuse(trigger: .fold)
+        }
+        lastStagedFromRecents = false
+    }
+
+    private var lastStagedFromRecents = false
+    private var lastPasteboardChange: Int = UIPasteboard.general.changeCount
+
+    /// The last two pages the user read in Safari become the two halves.
+    private func stageRecentPages() {
+        let fresh = SharedInbox.recentVisits().filter { Date().timeIntervalSince($0.at) < 45 * 60 }
+        guard let first = fresh.first else { return }
+        if let a = URL(string: first.url) {
+            left.apply(.url(a), as: .web)
+        }
+        if fresh.count > 1, let b = URL(string: fresh[1].url) {
+            right.apply(.url(b), as: .web)
+            flash("From Safari: \(first.title.prefix(28)) + \(fresh[1].title.prefix(28))")
+        } else {
+            flash("From Safari: \(first.title.prefix(40))")
+        }
+        lastStagedFromRecents = true
+        SharedInbox.clearRecents()
+    }
+
+    /// Something copied in another app goes on the first empty half.
+    private func offerClipboard() {
+        let board = UIPasteboard.general
+        guard board.changeCount != lastPasteboardChange else { return }
+        lastPasteboardChange = board.changeCount
+        let target = right.isHome ? right : (left.isHome ? left : nil)
+        guard let pane = target else { return }
+        if board.hasURLs, let url = board.url {
+            pane.apply(.url(url), as: .web)
+            flash("From clipboard: \(url.host ?? "link")")
+        } else if board.hasImages, let image = board.image {
+            pane.apply(.image(image), as: .photo)
+            flash("From clipboard: image")
+        } else if board.hasStrings, let text = board.string, !text.isEmpty {
+            pane.apply(.text(text), as: .notes)
+            flash("From clipboard: \(text.prefix(30))…")
+        }
+    }
+
+    private func importInbox() {
         let items = SharedInbox.drain()
         guard !items.isEmpty else { return }
         for item in items {
@@ -330,6 +387,7 @@ final class AppModel {
             switch item.kind {
             case .url:
                 if let s = item.url, let url = URL(string: s) { pane.apply(.url(url), as: .web) }
+                else if let text = item.text { pane.apply(.text(text), as: .notes) }
             case .text:
                 pane.apply(.text(item.text ?? ""), as: .notes)
             case .image:

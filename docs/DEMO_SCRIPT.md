@@ -121,3 +121,12 @@ Notation: **SAY** is voice-over, **DO** is what happens on screen.
 SAY: "And you don't have to be in Fuse. Two real apps, side by side."
 DO: Open Safari (an event page) on the left half and Calendar on the right — normal iOS multitasking. Double-tap the back (in the simulator: run the *Fuse* shortcut from the Shortcuts app, or say "Fuse my screen").
 SAY: "Screenshot, split at the fold, fused." Fuse opens with both halves already loaded, melts, and the event lands on the cover.
+
+
+## Opening beat (replace the hook): Fuse follows you — 25 s
+
+SETUP (once, off camera): Settings → Apps → Safari → Extensions → Fuse on, all websites. Control Center → + → add Fuse.
+DO: In real Safari, read the Islands of Adventure page. Open a second tab, search Google Maps for "Universal Orlando". Swipe down Control Center, tap **Fuse**.
+SAY: "I was just reading. I didn't open anything. I tap Fuse — and the two things I was looking at are already the two halves." (they load; the seam shows "Fold: Plan the day")
+DO: Fold the phone.
+SAY: "Fold means combine." (result on the cover) "Open it up —" (full itinerary on the map).

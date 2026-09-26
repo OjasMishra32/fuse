@@ -39,6 +39,16 @@ Any two real apps, side by side on the Duo, no Fuse open:
 
 Fuse opens with the two halves of that screenshot as its two screens, melts them, and produces the result. Saying "Fuse my screen" to Siri does the same, and the plain **Fuse** shortcut with nothing on the halves uses the newest screenshot in Photos.
 
+## Fuse follows you (works in the simulator)
+
+You never have to start in Fuse.
+
+- **Safari extension** — enable once: Settings → Apps → Safari → Extensions → Fuse → on, allow on all websites. From then on Fuse remembers the pages you read (URL, title, text, what you selected). Open Fuse from anywhere and the last two pages are already on the two halves; open it from the cover with the phone folded and it fuses immediately. The Fuse button in Safari's toolbar also puts the current page on a half in one tap.
+- **Control Center** — add the *Fuse* control (Control Center → + → Fuse). One tap from any app opens Fuse and fuses what you were just doing.
+- **Clipboard** — copy anything in any app; it's on a half when Fuse comes up.
+- **Share sheet** — Share → Fuse → Left / Right / Both halves.
+- **Siri / Spotlight** — "Fuse my screen", "Fuse with voice", or type Fuse in Spotlight.
+
 ## It is the phone
 
 Fuse opens to a home screen. Tap Safari and it opens on the left half; tap Maps and it opens on the right — the way two apps sit side by side on the Duo. Each half shows only that app and an iOS home bar. Fold the phone, and the two apps you were using become the two inputs.

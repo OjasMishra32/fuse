@@ -65,6 +65,34 @@ enum SharedInbox {
         }
     }
 
+    // MARK: Recents — pages the Safari extension saw the user read
+
+    struct Visit: Codable, Equatable {
+        var url: String
+        var title: String
+        var text: String
+        var selection: String
+        var at: Date = Date()
+    }
+
+    private static let recentsKey = "fuse.recents"
+
+    static func recordVisit(_ visit: Visit) {
+        var list = recentVisits().filter { $0.url != visit.url }
+        list.insert(visit, at: 0)
+        list = Array(list.prefix(12))
+        if let data = try? JSONEncoder().encode(list) { defaults?.set(data, forKey: recentsKey) }
+    }
+
+    static func recentVisits() -> [Visit] {
+        guard let data = defaults?.data(forKey: recentsKey) else { return [] }
+        return (try? JSONDecoder().decode([Visit].self, from: data)) ?? []
+    }
+
+    static func clearRecents() {
+        defaults?.removeObject(forKey: recentsKey)
+    }
+
     static func fileURL(for item: Item) -> URL? {
         guard let name = item.fileName, let container = containerURL else { return nil }
         return container.appendingPathComponent("inbox", isDirectory: true).appendingPathComponent(name)
