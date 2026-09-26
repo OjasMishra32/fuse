@@ -559,7 +559,14 @@ final class AppModel {
         case "stage":
             let pane = value("side") == "right" ? right : left
             if phase != .compose { dismissResult() }
-            if let u = value("url"), let link = URL(string: u) {
+            if let u = value("image"), let link = URL(string: u) {
+                // A photo by URL: download it and put the picture itself on the half.
+                Task { [weak self] in
+                    guard let self, let (data, _) = try? await URLSession.shared.data(from: link), let img = UIImage(data: data) else { return }
+                    pane.apply(.image(img.fuseDownscaled(maxEdge: 1600)), as: .photo)
+                    self.flash("Photo placed on the \(pane.side.title.lowercased()) screen")
+                }
+            } else if let u = value("url"), let link = URL(string: u) {
                 pane.apply(.url(link), as: .web)
             } else if let name = value("place"), let lat = value("lat").flatMap(Double.init), let lon = value("lon").flatMap(Double.init) {
                 pane.apply(.place(name: name, latitude: lat, longitude: lon), as: .maps)
