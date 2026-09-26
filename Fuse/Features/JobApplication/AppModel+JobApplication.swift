@@ -27,15 +27,37 @@ extension AppModel {
         return nil
     }
 
+    private var jobInstructionMatches: Bool {
+        let requested = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        return requested.isEmpty || requested == DemoScenario.named("job-application")?.instruction
+    }
+
+    /// Clear only this recipe's presentation. Keep its saved application/receipt available.
+    func exitJobApplicationWorkspace(clearInstruction: Bool = false) {
+        guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
+        jobDemoActive = false; jobPreviewCover = false; jobForceInnerPreview = false
+        jobFoldGate = JobApplicationFoldGate()
+        if clearInstruction || instruction == DemoScenario.named("job-application")?.instruction {
+            instruction = ""
+        }
+        resetIntentPreview()
+        foldPrompt = false; foldProgress = 0
+        if jobWorkspaceVisible && jobSceneActive { attachOrb() }
+    }
+
     func activateJobApplicationIfRecognized() {
-        guard !jobDemoActive, phase == .compose, jobApplicationPair != nil else { return }
+        if jobDemoActive && (jobApplicationPair == nil || !jobInstructionMatches) {
+            exitJobApplicationWorkspace()
+        }
+        guard !jobDemoActive, phase == .compose, jobApplicationPair != nil, jobInstructionMatches else { return }
         jobDemoActive = true
         jobPreviewCover = false; jobForceInnerPreview = false
         jobFoldGate = JobApplicationFoldGate()
         if let hinge, hinge.status == .fullyOpen || hinge.angle.degrees > 120 {
             _ = jobFoldGate.observe(closed: false, open: true, eligible: false)
         }
-        chosenSuggestion = nil; instruction = ""; foldPrompt = false; foldProgress = 0
+        resetIntentPreview()
+        instruction = ""; foldPrompt = false; foldProgress = 0
         FloatingOrb.shared.dismiss()
         // A previous receipt belongs to this sample and remains available until Start again.
     }
@@ -83,7 +105,7 @@ extension AppModel {
 
     func leaveJobApplication() {
         guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
-        jobDemoActive = false; jobPreviewCover = false; jobForceInnerPreview = false
+        exitJobApplicationWorkspace(clearInstruction: true)
         left.goHome(); right.goHome()
     }
 }

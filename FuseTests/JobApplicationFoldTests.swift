@@ -78,4 +78,72 @@ final class JobApplicationFoldTests: XCTestCase {
         XCTAssertNotNil(model.jobApplicationPair, "Whitespace changes do not make a different source")
         (model.left.model as? WebSurfaceModel)?.stop()
     }
+    @MainActor func testLeavingJobFlowClearsItsInstructionAndPreservesSession() {
+        let model = AppModel()
+        model.apply(DemoScenario.named("job-application")!)
+        let session = model.jobApplication
+        XCTAssertFalse(model.instruction.isEmpty)
+        model.leaveJobApplication()
+        XCTAssertFalse(model.jobDemoActive)
+        XCTAssertTrue(model.instruction.isEmpty)
+        XCTAssertTrue(model.left.isHome && model.right.isHome)
+        XCTAssertTrue(model.jobApplication === session)
+    }
+
+    @MainActor func testChangingJobPairReturnsToGeneralFusion() {
+        let model = AppModel()
+        model.apply(DemoScenario.named("job-application")!)
+        model.left.open(.photo)
+        model.right.open(.photo)
+        model.activateJobApplicationIfRecognized()
+        XCTAssertFalse(model.jobDemoActive)
+        XCTAssertNil(model.jobApplicationPair)
+        XCTAssertTrue(model.instruction.isEmpty, "Photos must not inherit the job instruction")
+        XCTAssertFalse(model.jobCanCombine)
+    }
+
+    @MainActor func testAnotherInstructionOnSamePairUsesGeneralEngine() {
+        let model = AppModel()
+        model.apply(DemoScenario.named("job-application")!)
+        model.instruction = "Create interview practice questions for this role"
+        model.activateJobApplicationIfRecognized()
+        XCTAssertFalse(model.jobDemoActive)
+        XCTAssertEqual(model.instruction, "Create interview practice questions for this role")
+    }
+
+    @MainActor func testOtherTeamRecipesRemainOutsideJobRoute() {
+        for id in ["two-photos", "theme-park", "cover-email"] {
+            let model = AppModel()
+            model.apply(DemoScenario.named("job-application")!)
+            let other = DemoScenario.named(id)!
+            model.apply(other)
+            model.activateJobApplicationIfRecognized()
+            XCTAssertFalse(model.jobDemoActive, id)
+            XCTAssertEqual(model.instruction, other.instruction ?? "", id)
+            XCTAssertNil(model.jobApplicationPair, id)
+            (model.left.model as? WebSurfaceModel)?.stop()
+            (model.right.model as? WebSurfaceModel)?.stop()
+        }
+    }
+
+    @MainActor func testResetExitsJobPresentation() {
+        let model = AppModel()
+        model.apply(DemoScenario.named("job-application")!)
+        model.resetPanes()
+        XCTAssertFalse(model.jobDemoActive)
+        XCTAssertTrue(model.instruction.isEmpty)
+    }
+
+    @MainActor func testHomeLinkClearsJobInstructionBeforeManualPairing() {
+        let model = AppModel()
+        model.apply(DemoScenario.named("job-application")!)
+        model.handle(url: URL(string: "fuse://home")!)
+        XCTAssertFalse(model.jobDemoActive)
+        XCTAssertTrue(model.instruction.isEmpty)
+        model.left.apply(.text("A contract"), as: .notes)
+        model.right.apply(.text("A company policy"), as: .notes)
+        model.activateJobApplicationIfRecognized()
+        XCTAssertFalse(model.jobDemoActive)
+    }
+
 }

@@ -59,3 +59,9 @@ Rebased onto team main `631ba58`, retaining its image-fusion and scenario update
 The completed native screen now leads with **Application filled. Résumé customized.** and populated name, email, customized résumé, and cover-letter fields. Documents expand inline; the local delivery receipt is secondary. Complete sample job/résumé pairs activate this native route in either pane order, including manually staged pairs. Partial résumés and unrelated URLs are not silently submitted.
 
 Validation: 66 native tests pass, including both pane orders, incomplete-pair rejection, and recognition when the résumé body changes without its headline changing. Installed the updated `local.fuse.review` build in Bitrig. A fresh application and local delivery receipt were observed in the native UI. Automated host fold controls intermittently change their selected state without delivering the corresponding hinge update; physical gesture validation remains distinct from the working in-app preview.
+
+## One recipe in FUSE
+
+Job applications are an isolated recipe, not the global fold behavior. The dedicated path requires the complete supported job/résumé pair and its default action. Other inputs or an explicit different instruction return to the general AI engine. Leaving, resetting, choosing another scenario, and screenshot intake clear the job instruction and preview state; the saved application remains intact. Foreground exit restores the shared floating control.
+
+Regression checks cover leaving job mode for photos, itinerary and cover-email recipes, another instruction on the same pair, home/manual pairing, and reset.

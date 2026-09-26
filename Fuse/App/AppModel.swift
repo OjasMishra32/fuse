@@ -102,6 +102,13 @@ final class AppModel {
 
     // MARK: Intent preview
 
+    func resetIntentPreview() {
+        previewTask?.cancel()
+        previewTask = nil
+        lastPreviewKey = ""
+        suggestions = []; chosenSuggestion = nil; isPreviewing = false
+    }
+
     func schedulePreview() {
         activateJobApplicationIfRecognized()
         if jobDemoActive {
@@ -377,6 +384,8 @@ final class AppModel {
     }
 
     func resetPanes() {
+        guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
+        if jobDemoActive { exitJobApplicationWorkspace(clearInstruction: true) }
         left.reset()
         right.reset()
         instruction = ""
@@ -388,6 +397,7 @@ final class AppModel {
 
     func apply(_ scenario: DemoScenario) {
         guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
+        if jobDemoActive && scenario.id != "job-application" { exitJobApplicationWorkspace() }
         jobDemoActive = scenario.id == "job-application"
         if jobDemoActive {
             fuseTask?.cancel(); previewTask?.cancel()
@@ -535,6 +545,8 @@ final class AppModel {
     /// This is how Fuse works from *any* app: Back Tap → Shortcut (Take Screenshot → Fuse Screenshot).
     /// `instruction` defaults to whatever is already typed/spoken; pass a value to replace it.
     func fuseScreenshot(_ image: UIImage, instruction: String? = nil) {
+        guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
+        if jobDemoActive { exitJobApplicationWorkspace() }
         let kept = instruction ?? self.instruction
         let (a, b) = Self.splitAtFold(image)
         if phase != .compose { dismissResult() }   // clears `instruction`; restored below
@@ -579,6 +591,7 @@ final class AppModel {
         case "demo":
             if let id = value("id"), let s = DemoScenario.all.first(where: { $0.id == id }) { apply(s) }
         case "stage":
+            guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
             let pane = value("side") == "right" ? right : left
             if phase != .compose { dismissResult() }
             if let u = value("url"), let link = URL(string: u) {
@@ -594,8 +607,8 @@ final class AppModel {
         case "fuse":
             fuse(trigger: .intent)
         case "home":
-            guard !jobApplication.isBusy else { return }
-            jobDemoActive = false
+            guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
+            if jobDemoActive { exitJobApplicationWorkspace(clearInstruction: true) }
             left.goHome(); right.goHome()
         case "screenshot":
             Task { await fuseLatestScreenshot() }
