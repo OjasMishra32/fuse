@@ -22,14 +22,12 @@ struct HistoryView: View {
                     list
                 }
             }
-            .background { Theme.background }
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if !store.items.isEmpty {
                         Button("Clear", role: .destructive) { confirmClear = true }
-                            .tint(ResultPalette.bad)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -46,8 +44,6 @@ struct HistoryView: View {
                 Text("Past results and their images will be removed from this device.")
             }
         }
-        
-        .tint(Theme.violet)
     }
 
     private var list: some View {
@@ -57,12 +53,9 @@ struct HistoryView: View {
                     Haptics.tap()
                     onOpen(item)
                 } label: {
-                    HistoryRow(item: item)
+                    FuseResultRow(title: item.title, subtitle: item.inputsLine, date: item.createdAt)
                 }
                 .buttonStyle(.plain)
-                .listRowBackground(Color.clear)
-                .listRowSeparatorTint(Theme.line)
-                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 16))
             }
             .onDelete { offsets in
                 let doomed = offsets.compactMap { store.items[safe: $0] }
@@ -72,33 +65,26 @@ struct HistoryView: View {
                 }
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
+        .listStyle(.insetGrouped)
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 36, weight: .light))
-                .foregroundStyle(Theme.textTertiary)
-            Text("No fuses yet")
-                .font(.fuseHeadline)
-                .foregroundStyle(Theme.textPrimary)
+        ContentUnavailableView {
+            Label("No fuses yet", systemImage: "clock.arrow.circlepath")
+        } description: {
             Text("Fold the phone with something on each screen. Results you make will collect here.")
-                .font(.fuseCaption)
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 260)
         }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 // MARK: - Row
 
-private struct HistoryRow: View {
-    let item: FuseResult
+/// One fuse result in a list: static orb glyph, title, the inputs, and how long ago.
+/// Shared by History and Community.
+struct FuseResultRow: View {
+    var title: String
+    var subtitle: String
+    var date: Date?
 
     private static let relative: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
@@ -107,72 +93,52 @@ private struct HistoryRow: View {
         return f
     }()
 
-    private var relativeDate: String {
-        let interval = Date().timeIntervalSince(item.createdAt)
+    private var relativeDate: String? {
+        guard let date else { return nil }
+        let interval = Date().timeIntervalSince(date)
         if interval < 60 { return "now" }
-        return Self.relative.localizedString(for: item.createdAt, relativeTo: Date())
+        return Self.relative.localizedString(for: date, relativeTo: Date())
     }
 
     var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(Theme.ink3)
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(Theme.line, lineWidth: 1)
-                Image(systemName: item.artifact.symbol)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.violet)
-            }
-            .frame(width: 42, height: 42)
+        HStack(spacing: 12) {
+            OrbGlyph(size: 28)
+                .frame(width: 32, height: 32)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.title)
-                    .font(.fuseHeadline)
-                    .foregroundStyle(Theme.textPrimary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
-                inputsLine
+                Text(subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 8)
 
-            VStack(alignment: .trailing, spacing: 6) {
+            if let relativeDate {
                 Text(relativeDate)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textTertiary)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.textTertiary)
+                    .font(.footnote)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
             }
-        }
-        .contentShape(Rectangle())
-    }
 
-    @ViewBuilder
-    private var inputsLine: some View {
-        if item.inputs.isEmpty {
-            Text(item.recipe.fuseHumanized)
-                .font(.fuseCaption)
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(1)
-        } else {
-            HStack(spacing: 5) {
-                ForEach(Array(item.inputs.prefix(3).enumerated()), id: \.offset) { index, input in
-                    if index > 0 {
-                        Image(systemName: "plus")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(Theme.textTertiary)
-                    }
-                    Image(systemName: input.kind.symbol)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(input.kind.tint)
-                    Text(input.title.isEmpty ? input.kind.title : input.title)
-                        .font(.fuseCaption)
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(1)
-                        .layoutPriority(index == 0 ? 1 : 0)
-                }
-            }
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tertiary)
         }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension FuseResult {
+    /// "Browser and Maps", or the humanized recipe when no inputs were recorded.
+    var inputsLine: String {
+        if inputs.isEmpty { return recipe.fuseHumanized }
+        return inputs.prefix(3).map(\.kind.title).joined(separator: " and ")
     }
 }

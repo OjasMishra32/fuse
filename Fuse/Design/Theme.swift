@@ -5,7 +5,8 @@ import UIKit
 //
 // It should look like Apple shipped it. System colors, system materials, SF Pro, native
 // iOS 26 glass button styles, and the device's own appearance (light or dark). One accent,
-// no gradients, no glow. The only theatrical moment is the melt, and even that is glass.
+// no gradients in chrome. The one expressive element is the orb (Design/Orb.swift), and it
+// appears only where the fuse itself is the subject.
 
 enum Theme {
     // Surfaces (adapt to light/dark automatically)
@@ -33,15 +34,23 @@ enum Theme {
     static let energyVertical = LinearGradient(colors: [Color.accentColor, Color.accentColor], startPoint: .top, endPoint: .bottom)
     static let energyAngular = AngularGradient(colors: [Color.accentColor.opacity(0.9), Color.accentColor.opacity(0.35), Color.accentColor.opacity(0.9)], center: .center)
 
-    // Radii — iOS inset-grouped scale
+    // Radii, iOS inset-grouped scale
     static let radiusPane: CGFloat = 0
     static let radiusCard: CGFloat = 14
     static let radiusChip: CGFloat = 10
+    /// Small icon tile (Settings-style) radius.
+    static let radiusTile: CGFloat = 7
+
+    // Spacing. Screens use `gutter` for their side margins, rows use `margin`.
+    static let gutter: CGFloat = 20
+    static let margin: CGFloat = 16
 
     // Motion
     static let snappy = Animation.spring(response: 0.36, dampingFraction: 0.82)
     static let smooth = Animation.spring(response: 0.55, dampingFraction: 0.86)
     static let melt = Animation.interpolatingSpring(stiffness: 120, damping: 18)
+    /// Slow idle breath for the seam's ready glow.
+    static let breath = Animation.easeInOut(duration: 2.2).repeatForever(autoreverses: true)
 
     /// Plain system background.
     static var background: some View {
@@ -161,6 +170,25 @@ struct Eyebrow: View {
         Text(text.uppercased())
             .font(.footnote)
             .foregroundStyle(.secondary)
+    }
+}
+
+/// A Settings-style icon tile: SF Symbol on a small rounded square in one tint.
+struct IconTile: View {
+    var symbol: String
+    var tint: Color = .accentColor
+    var size: CGFloat = 30
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Theme.radiusTile, style: .continuous)
+            .fill(tint)
+            .frame(width: size, height: size)
+            .overlay(
+                Image(systemName: symbol)
+                    .font(.system(size: size * 0.53, weight: .medium))
+                    .foregroundStyle(.white)
+            )
+            .accessibilityHidden(true)
     }
 }
 

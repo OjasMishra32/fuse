@@ -80,6 +80,9 @@ final class AppModel {
     private var fuseTask: Task<Void, Never>?
     private var armed = true
     private var hintTask: Task<Void, Never>?
+    /// What the last fuse was made from. A fold with the same inputs and instruction shows the
+    /// existing result instead of running again; "Fuse again" and follow-ups always re-run.
+    private var lastFusedKey: String?
 
     var readiness: Int { (left.model.hasContent && !left.isHome ? 1 : 0) + (right.model.hasContent && !right.isHome ? 1 : 0) }
     /// True when at least one half is showing the home screen (the system chrome shows then).
@@ -144,29 +147,36 @@ final class AppModel {
         hinge = new.hinge
         guard let h = new.hinge else { return }
         let deg = h.angle.degrees
-        if jobDemoActive {
-            if jobFoldGate.observe(closed: h.status == .closed, open: h.status == .fullyOpen || deg > 120,
-                                   eligible: jobCanCombine) {
-                startJobApplication(trigger: .fold)
-            }
-            return
-        }
+        let previous = lastHingeDegrees
+        lastHingeDegrees = deg
+        let closing = deg < previous - 0.5          // moving toward closed
+        let opening = deg > previous + 0.5          // moving toward open
 
+        // The melt follows the closing motion only. Opening always relaxes the stage.
         if debugFold == nil {
-            // Start melting once the user commits to a fold, finish just before closed.
-            let p = ((165 - deg) / 135).clamped(to: 0...1)
-            withAnimation(Theme.melt) { foldProgress = p }
+            if closing && phase == .compose {
+                let p = ((165 - deg) / 135).clamped(to: 0...1)
+                withAnimation(Theme.melt) { foldProgress = p }
+            } else if opening || phase != .compose {
+                if foldProgress != 0 { withAnimation(Theme.smooth) { foldProgress = 0 } }
+            }
         }
 
-        // Re-arm once reopened.
+        // Re-arm only once the phone is properly open again.
         if deg > 120 { armed = true }
 
-        let justClosed = h.status == .closed && old.hinge?.status != .closed
-        if (justClosed || (deg < 22 && h.status != .fullyOpen)) && armed && phase == .compose {
+        // Fuse only on the way down: open -> closed. Never while opening, never twice per fold.
+        let reachedClosed = (h.status == .closed && old.hinge?.status != .closed) || deg < 22
+        if reachedClosed && closing && armed && phase == .compose && isReady {
             armed = false
             fuse(trigger: .fold)
+        } else if reachedClosed && closing && armed && phase == .compose {
+            // Nothing staged: don't burn the arm, just relax.
+            withAnimation(Theme.smooth) { foldProgress = 0 }
         }
     }
+
+    private var lastHingeDegrees: Double = 180
 
     // MARK: Triggers
 
@@ -209,6 +219,17 @@ final class AppModel {
         if jobDemoActive { startJobApplication(trigger: trigger); return }
         guard phase != .fusing else { return }
         lastTrigger = trigger
+        let key = contentKey + "|" + instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trigger == .fold, key == lastFusedKey, let existing = currentResult {
+            // Same two things, same ask: the answer already exists. Show it, don't run again.
+            Haptics.medium()
+            withAnimation(Theme.smooth) {
+                foldProgress = 0
+                currentResult = existing
+                phase = .result
+            }
+            return
+        }
         guard isReady else {
             withAnimation(Theme.smooth) { foldProgress = 0 }
             flash("Put something on a screen first")
@@ -230,6 +251,7 @@ final class AppModel {
         Haptics.heavy()
         previewTask?.cancel()
         foldPrompt = false
+        lastFusedKey = key
         withAnimation(Theme.melt) { foldProgress = 1 }
         phase = .fusing
         fusingStage = FuseEngine.Stage.reading.rawValue
@@ -279,6 +301,7 @@ final class AppModel {
     func cancelFuse() {
         fuseTask?.cancel()
         fuseTask = nil
+        lastFusedKey = nil
         withAnimation(Theme.smooth) {
             phase = .compose
             foldProgress = 0
@@ -326,6 +349,7 @@ final class AppModel {
         left.reset()
         right.reset()
         instruction = ""
+        lastFusedKey = nil
         flash("Cleared")
     }
 
@@ -377,7 +401,8 @@ final class AppModel {
         let command = FuseCommandFlag.take()
         let consumedScreenshot = importInbox()
         if left.isHome && right.isHome {
-            stageRecentPages()
+            // Safari recents only when Fuse was summoned (control, intent, cover); never on a plain open.
+            if command == "fuse" || isClosed { stageRecentPages() }
             offerClipboard()
         }
         if consumedScreenshot {

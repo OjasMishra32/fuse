@@ -24,8 +24,6 @@ struct SettingsView: View {
                 aboutSection
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background { Theme.background }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -39,8 +37,6 @@ struct SettingsView: View {
                 }
             }
         }
-        
-        .tint(Theme.cyan)
         .onAppear(perform: load)
         .onChange(of: focusedKey) { previous, _ in
             if let previous { save(previous) }
@@ -83,7 +79,6 @@ struct SettingsView: View {
         } footer: {
             Text("Stored only on this device. Values here override the build-time xcconfig.")
         }
-        .listRowBackground(Theme.ink2)
     }
 
     @ViewBuilder
@@ -153,7 +148,6 @@ struct SettingsView: View {
                 detail: RevenueCatService.shared.statusText
             )
         }
-        .listRowBackground(Theme.ink2)
     }
 
     // MARK: Fuse Pro
@@ -166,16 +160,16 @@ struct SettingsView: View {
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Text(store.isPro ? "PRO" : "FREE · \(store.remainingFree) LEFT TODAY")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.caption2.weight(.bold))
                     .tracking(0.6)
-                    .foregroundStyle(store.isPro ? Color.black.opacity(0.85) : Theme.textSecondary)
+                    .foregroundStyle(store.isPro ? Color.white : Theme.textSecondary)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
                     .background {
                         if store.isPro {
-                            Capsule().fill(Theme.energy)
+                            Capsule().fill(Color.accentColor)
                         } else {
-                            Capsule().fill(.white.opacity(0.08))
+                            Capsule().fill(Color(uiColor: .tertiarySystemFill))
                         }
                     }
             }
@@ -218,9 +212,8 @@ struct SettingsView: View {
         } footer: {
             Text(store.isConfigured
                  ? "Subscriptions are handled by RevenueCat. Entitlement: \"\(RevenueCatService.entitlementID)\"."
-                 : "No RevenueCat key yet — the paywall runs in demo mode and unlocks Pro on this device only.")
+                 : "No RevenueCat key yet. The paywall runs in demo mode and unlocks Pro on this device only.")
         }
-        .listRowBackground(Theme.ink2)
     }
 
     // MARK: About
@@ -228,7 +221,7 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             AboutRow(symbol: "iphone.gen3", title: "onHingeChange",
-                     detail: "SwiftUI modifier that fires as the Duo folds — the fold itself is the fuse trigger.")
+                     detail: "SwiftUI modifier that fires as the Duo folds. The fold itself is the fuse trigger.")
             AboutRow(symbol: "rectangle.split.2x1", title: "DeviceHinge",
                      detail: "Hinge state and angle, driving the melt animation across the seam.")
             AboutRow(symbol: "rectangle.center.inset.filled", title: "reservedRegions(.division)",
@@ -238,9 +231,8 @@ struct SettingsView: View {
         } header: {
             Text("About")
         } footer: {
-            Text("Made at Bitrig Hacks — iPhone Duo Edition · Fuse \(Self.appVersion)")
+            Text("Made at Bitrig Hacks, iPhone Duo Edition. Fuse \(Self.appVersion)")
         }
-        .listRowBackground(Theme.ink2)
     }
 
     private static var appVersion: String {
@@ -277,10 +269,7 @@ private struct StatusRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.textSecondary)
-                .frame(width: 24)
+            IconTile(symbol: symbol, tint: Color(uiColor: .systemGray), size: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                     .font(.fuseBody)
@@ -292,9 +281,8 @@ private struct StatusRow: View {
             }
             Spacer()
             Circle()
-                .fill(ok ? Theme.mint : Theme.textTertiary)
+                .fill(ok ? Color(uiColor: .systemGreen) : Theme.textTertiary)
                 .frame(width: 9, height: 9)
-                .shadow(color: ok ? Theme.mint.opacity(0.7) : .clear, radius: 5)
         }
         .padding(.vertical, 2)
     }
@@ -307,10 +295,7 @@ private struct AboutRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.energy)
-                .frame(width: 24)
+            IconTile(symbol: symbol, tint: .accentColor, size: 30)
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)

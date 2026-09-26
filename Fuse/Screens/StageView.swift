@@ -146,45 +146,82 @@ struct HomeScreen: View {
     let pane: Pane
     @Bindable var model: AppModel
     @Environment(\.colorScheme) private var scheme
+    @State private var popped = false
 
-    private let columns = [GridItem(.adaptive(minimum: 68, maximum: 84), spacing: 14)]
+    /// Panes whose grid has already popped in this launch. The stagger plays once per half.
+    private static var poppedPanes: Set<ObjectIdentifier> = []
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .top), count: 4)
+    private let glyph: CGFloat = 60
+
+    private var utilities: [(title: String, symbol: String, tint: Color, action: () -> Void)] {
+        [
+            ("Scenarios", "wand.and.stars", Color(uiColor: .systemIndigo), { model.showScenarios = true }),
+            ("History", "clock.arrow.circlepath", Color(uiColor: .systemOrange), { model.showHistory = true }),
+            ("Community", "person.2", Color(uiColor: .systemGreen), { model.showCommunity = true }),
+            ("Settings", "gearshape", Color(uiColor: .systemGray), { model.showSettings = true }),
+        ]
+    }
 
     var body: some View {
         ZStack {
             wallpaper
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 22) {
-                    LazyVGrid(columns: columns, spacing: 18) {
-                        ForEach(SurfaceRegistry.dockOrder) { kind in
+                VStack(spacing: 28) {
+                    LazyVGrid(columns: columns, spacing: 22) {
+                        ForEach(Array(SurfaceRegistry.dockOrder.enumerated()), id: \.element) { index, kind in
                             appButton(kind)
+                                .popIn(popped, index: index)
                         }
                     }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 54)
 
-                    Divider().padding(.horizontal, 40).opacity(0.5)
+                    sectionLabel("Fuse")
 
-                    LazyVGrid(columns: columns, spacing: 18) {
-                        systemButton("Scenarios", symbol: "wand.and.stars", tint: Color(uiColor: .systemIndigo)) { model.showScenarios = true }
-                        systemButton("History", symbol: "clock.arrow.circlepath", tint: Color(uiColor: .systemOrange)) { model.showHistory = true }
-                        systemButton("Community", symbol: "person.2", tint: Color(uiColor: .systemGreen)) { model.showCommunity = true }
-                        systemButton("Settings", symbol: "gearshape", tint: Color(uiColor: .systemGray)) { model.showSettings = true }
+                    LazyVGrid(columns: columns, spacing: 22) {
+                        ForEach(Array(utilities.enumerated()), id: \.offset) { index, item in
+                            systemButton(item.title, symbol: item.symbol, tint: item.tint, action: item.action)
+                                .popIn(popped, index: SurfaceRegistry.dockOrder.count + index)
+                        }
                     }
-                    .padding(.horizontal, 18)
-                    .padding(.bottom, 24)
                 }
+                .padding(.horizontal, Theme.margin)
+                .padding(.top, 44)
+                .padding(.bottom, 32)
+            }
+        }
+        .onAppear {
+            let id = ObjectIdentifier(pane)
+            if Self.poppedPanes.contains(id) {
+                popped = true
+            } else {
+                Self.poppedPanes.insert(id)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { popped = true }
             }
         }
     }
 
+    /// Very quiet wallpaper: the system background with a faint tint toward the top.
     private var wallpaper: some View {
         LinearGradient(
             colors: scheme == .dark
-                ? [Color(red: 0.06, green: 0.09, blue: 0.16), Color(red: 0.02, green: 0.03, blue: 0.06)]
-                : [Color(red: 0.84, green: 0.91, blue: 1.0), Color(red: 0.96, green: 0.97, blue: 1.0)],
+                ? [Color(red: 0.08, green: 0.10, blue: 0.14), Color(red: 0.03, green: 0.03, blue: 0.05)]
+                : [Color(red: 0.92, green: 0.95, blue: 0.99), Color(red: 0.97, green: 0.97, blue: 0.98)],
             startPoint: .top, endPoint: .bottom
         )
         .ignoresSafeArea()
+    }
+
+    /// Thin divider with a small centered label, separating the apps from Fuse's own utilities.
+    private func sectionLabel(_ text: String) -> some View {
+        HStack(spacing: 10) {
+            Rectangle().fill(.secondary.opacity(0.25)).frame(height: 0.5)
+            Text(text)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Rectangle().fill(.secondary.opacity(0.25)).frame(height: 0.5)
+        }
+        .padding(.horizontal, 8)
+        .accessibilityElement(children: .combine)
     }
 
     private func appButton(_ kind: SurfaceKind) -> some View {
@@ -194,7 +231,7 @@ struct HomeScreen: View {
             pane.open(kind)
         } label: {
             VStack(spacing: 6) {
-                AppGlyph(kind: kind, size: 60)
+                AppGlyph(kind: kind, size: glyph)
                     .overlay(alignment: .topTrailing) {
                         if surface.hasContent {
                             Circle().fill(Color.accentColor).frame(width: 10, height: 10)
@@ -203,28 +240,53 @@ struct HomeScreen: View {
                         }
                     }
                 Text(kind.title)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
             }
+            .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(kind.title)
     }
 
     private func systemButton(_ title: String, symbol: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                RoundedRectangle(cornerRadius: glyph * 0.22, style: .continuous)
                     .fill(tint.gradient)
-                    .frame(width: 60, height: 60)
-                    .overlay(Image(systemName: symbol).font(.system(size: 28, weight: .medium)).foregroundStyle(.white))
+                    .frame(width: glyph, height: glyph)
+                    .overlay(Image(systemName: symbol).font(.system(size: glyph * 0.46, weight: .medium)).foregroundStyle(.white))
                 Text(title)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
             }
+            .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+}
+
+// MARK: - Pop-in (home grid)
+
+private struct PopInModifier: ViewModifier {
+    var shown: Bool
+    var index: Int
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(shown ? 1 : 0.82)
+            .opacity(shown ? 1 : 0)
+            .animation(Theme.snappy.delay(Double(index) * 0.03), value: shown)
+    }
+}
+
+private extension View {
+    /// Scales and fades the view in when `shown` flips true, staggered by `index`.
+    func popIn(_ shown: Bool, index: Int) -> some View {
+        modifier(PopInModifier(shown: shown, index: index))
     }
 }
 

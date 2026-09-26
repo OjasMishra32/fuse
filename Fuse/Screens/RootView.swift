@@ -29,13 +29,16 @@ struct RootView: View {
 
             if let hint = model.hint {
                 Text(hint)
-                    .font(.footnote)
+                    .font(.footnote.weight(.medium))
                     .foregroundStyle(.primary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Theme.margin)
+                    .padding(.vertical, 10)
                     .background(.regularMaterial, in: Capsule())
+                    .frame(maxWidth: 360)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 18)
+                    .padding(.bottom, Theme.gutter)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
@@ -170,15 +173,15 @@ struct RootView: View {
                 GlassButton(title: "Close → fuse", symbol: "bolt.fill") { devFold = 1; model.setDebugFold(1) }
                 GlassButton(title: "Release", symbol: "hand.raised") { model.setDebugFold(nil) }
             }
-            Text("Hinge: \(Int(model.hingeDegrees))°  ·  progress \(String(format: "%.2f", model.foldProgress))  ·  trigger \(model.lastTrigger?.rawValue ?? "—")")
+            Text("Hinge: \(Int(model.hingeDegrees))°  ·  progress \(String(format: "%.2f", model.foldProgress))  ·  trigger \(model.lastTrigger?.rawValue ?? "none")")
                 .font(.fuseMono)
                 .foregroundStyle(.secondary)
         }
-        .padding(14)
+        .padding(Theme.margin)
         .frame(width: 420)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .padding(.bottom, 14)
+        .padding(.bottom, Theme.margin)
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }
@@ -191,25 +194,51 @@ struct ResultScreen: View {
     var result: FuseResult
 
     var body: some View {
-        ZStack(alignment: .top) {
+        VStack(spacing: 0) {
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button {
+                        Haptics.tap()
+                        model.dismissResult()
+                    } label: {
+                        Label("Back", systemImage: "chevron.left")
+                    }
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+                    Spacer()
+                    Button {
+                        Haptics.tap()
+                        model.stage(result, on: .left)
+                    } label: {
+                        Label("Keep on left", systemImage: "rectangle.lefthalf.inset.filled")
+                    }
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+                    Button {
+                        Haptics.tap()
+                        model.stage(result, on: .right)
+                    } label: {
+                        Label("Keep on right", systemImage: "rectangle.righthalf.inset.filled")
+                    }
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+                }
+                .controlSize(.small)
+            }
+            .padding(.horizontal, Theme.gutter)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+
             ResultView(
                 result: result,
                 compact: false,
+                showsClose: false,
                 onFollowUp: { model.followUp($0) },
                 onDismiss: { model.dismissResult() },
                 onRefuse: { model.refuse() }
             )
-            .padding(.top, 40)
-
-            HStack(spacing: 8) {
-                GlassButton(title: "Back", symbol: "chevron.left") { model.dismissResult() }
-                Spacer()
-                GlassButton(title: "Keep on left", symbol: "rectangle.lefthalf.inset.filled") { model.stage(result, on: .left) }
-                GlassButton(title: "Keep on right", symbol: "rectangle.righthalf.inset.filled") { model.stage(result, on: .right) }
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 50)
         }
+        .background { Theme.grouped.ignoresSafeArea() }
     }
 }
 
@@ -223,20 +252,23 @@ struct InstructionEditor: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 12) {
                 Eyebrow(text: "What should the fuse do?")
+                    .padding(.leading, Theme.margin)
                 TextField("e.g. Make a one-day plan, or Draft the reply", text: $text, axis: .vertical)
                     .lineLimit(3...6)
                     .font(.fuseBody)
-                    .padding(12)
+                    .padding(Theme.margin)
                     .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
                     .focused($focused)
                 Text("Optional. Without an instruction, Fuse infers the most useful result from the relationship between the two screens.")
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textTertiary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, Theme.margin)
                 Spacer()
             }
-            .padding(20)
+            .padding(.horizontal, Theme.gutter)
+            .padding(.top, Theme.gutter)
             .background(Theme.grouped)
             .navigationTitle("Instruction")
             .navigationBarTitleDisplayMode(.inline)
@@ -270,28 +302,42 @@ struct ScenariosSheet: View {
         NavigationStack {
             List {
                 ForEach(DemoScenario.sections) { section in
-                    Section(section.title) {
+                    Section {
                         ForEach(section.scenarios) { scenario in
                             Button {
+                                Haptics.tap()
                                 dismiss()
                                 model.apply(scenario)
                             } label: {
                                 HStack(spacing: 12) {
-                                    Image(systemName: scenario.symbol)
-                                        .font(.body.weight(.medium))
-                                        .foregroundStyle(Color.accentColor)
-                                        .frame(width: 28)
+                                    IconTile(symbol: scenario.symbol, tint: .accentColor, size: 30)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(scenario.title).foregroundStyle(.primary)
-                                        Text(scenario.subtitle).font(.footnote).foregroundStyle(.secondary)
+                                        Text(scenario.title)
+                                            .font(.body)
+                                            .foregroundStyle(.primary)
+                                            .lineLimit(1)
+                                        Text(scenario.subtitle)
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
                                     }
+                                    Spacer(minLength: 0)
                                 }
                             }
+                        }
+                    } header: {
+                        HStack {
+                            Text(section.title)
+                            Spacer()
+                            Text("\(section.scenarios.count)")
+                                .font(.footnote.monospacedDigit())
+                                .foregroundStyle(.tertiary)
                         }
                     }
                 }
                 Section {
                     Button(role: .destructive) {
+                        Haptics.tap()
                         dismiss()
                         model.resetPanes()
                     } label: {
@@ -299,6 +345,7 @@ struct ScenariosSheet: View {
                     }
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("Scenarios")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }

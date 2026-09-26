@@ -33,16 +33,10 @@ struct MeltOverlay: View {
         }
     }
 
-    // MARK: Palette (only ever used here)
+    // MARK: Palette (shared with the orb)
 
     private func glow(angle: Double) -> AngularGradient {
-        AngularGradient(
-            colors: [Color(red: 0.25, green: 0.55, blue: 1.0), Color(red: 0.35, green: 0.85, blue: 0.95),
-                     Color(red: 1.0, green: 0.55, blue: 0.75), Color(red: 1.0, green: 0.75, blue: 0.45),
-                     Color(red: 0.25, green: 0.55, blue: 1.0)],
-            center: .center,
-            angle: .degrees(angle)
-        )
+        Orb.glow(angle: angle)
     }
 
     // MARK: Edge glow
