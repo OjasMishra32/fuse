@@ -51,15 +51,23 @@ struct FuseEngine {
         ]
         result.instruction = instruction?.isEmpty == false ? instruction : nil
 
-        if case .image(var image) = result.artifact, image.imageBase64 == nil {
+        if case .image(var image) = result.artifact {
+            // Only the image endpoint can supply pixels. Never accept base64 invented
+            // by the text router, or turn a cancelled plan into a paid edit request.
+            try Task.checkCancellation()
             progress(.rendering)
             let sources = [left.image, right.image].compactMap { $0 }
             let data: Data
             if sources.isEmpty {
                 data = try await client.imageGenerate(prompt: image.prompt)
             } else {
+                image.prompt = Prompts.imageEdit(
+                    prompt: image.prompt, left: left, right: right,
+                    instruction: instruction, suggested: suggested
+                )
                 data = try await client.imageEdit(prompt: image.prompt, images: sources)
             }
+            try Task.checkCancellation()
             image.imageBase64 = data.base64EncodedString()
             result.artifact = .image(image)
         }

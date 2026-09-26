@@ -27,6 +27,21 @@ struct FuseSnippetView: View {
                     .lineLimit(4)
             }
 
+            if case .image(let artifact) = result.artifact {
+                if let image = artifact.uiImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: 240)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .accessibilityLabel(artifact.caption ?? result.title)
+                } else {
+                    Text("The generated image could not be displayed.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             let rows = Self.rows(for: result.artifact)
             if !rows.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
@@ -53,6 +68,10 @@ struct FuseSnippetView: View {
     /// At most a few plain-text lines of the key facts; markdown shows its first five lines.
     static func rows(for artifact: FuseArtifact, limit: Int = 4) -> [String] {
         switch artifact {
+        case .image:
+            // Display the generated pixels above instead of exposing the image-edit prompt.
+            return []
+
         case .markdown(let md):
             return md
                 .components(separatedBy: .newlines)

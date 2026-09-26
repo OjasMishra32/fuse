@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Intent preview
 //
-// The moment both screens have something on them, a quick text-only pass asks the model
+// The moment both screens have something on them, a quick pass asks the model
 // what the best fuses would be *right now*. The top one becomes the fold's default; the
 // others are one tap away on the seam. This is how the app shows its reasoning before the
 // user commits to the fold.
@@ -64,18 +64,21 @@ struct IntentPreviewer {
     - "artifact" is one of: itinerary, event, email, quiz, grade, slides, code, diff, table, checklist, image_edit, markdown.
     - "title" is 2–4 words, verb first ("Plan the day", "Add to calendar", "Grade my answers").
     - "symbol" is an SF Symbol name.
+    - When both screens contain images, inspect them. For furniture + room, clothing + person, or a subject + visual style reference, put an image_edit suggestion first. Infer the scene and object from their contents in either left/right order. Name the concrete edit ("Place the green armchair beside the window in this room"). Avoid a generic comparison when a visual composition is the useful result. Documents and message screenshots still need text-based suggestions.
     Respond with JSON only: {"suggestions":[{"title":"…","instruction":"…","artifact":"…","symbol":"…"}, …]}
     """
 
     func suggest(left: SurfaceSnapshot, right: SurfaceSnapshot) async throws -> [FuseSuggestion] {
-        var l = left; l.image = nil; l.text = l.text.fuseClipped(2500)
-        var r = right; r.image = nil; r.text = r.text.fuseClipped(2500)
-        let parts: [OpenAIClient.Part] = [
-            .text(Prompts.userPreamble(instruction: nil)),
-            .text(Prompts.describe(l, side: "left") + (left.image != nil ? "\n(There is also an image on this screen.)" : "")),
-            .text(Prompts.describe(r, side: "right") + (right.image != nil ? "\n(There is also an image on this screen.)" : "")),
-            .text("Respond with the JSON object only.")
-        ]
+        var l = left; l.text = l.text.fuseClipped(2500)
+        var r = right; r.text = r.text.fuseClipped(2500)
+        // A caption such as "Photo 2048×1536" cannot distinguish a chair from a room.
+        // Small visual references keep the preview cheap; the edit uses larger originals.
+        var parts: [OpenAIClient.Part] = [.text(Prompts.userPreamble(instruction: nil))]
+        parts.append(.text(Prompts.describe(l, side: "left")))
+        if let image = left.image { parts.append(.image(image.fuseDownscaled(maxEdge: 512))) }
+        parts.append(.text(Prompts.describe(r, side: "right")))
+        if let image = right.image { parts.append(.image(image.fuseDownscaled(maxEdge: 512))) }
+        parts.append(.text("Respond with the JSON object only."))
         let raw = try await client.chatJSON(system: Self.system, parts: parts)
         return Self.decode(raw)
     }

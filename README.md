@@ -24,9 +24,16 @@ Some pairs and what they produce:
 | Your calendar | A pin | Day ordered geographically, with leave-by times |
 | Wikipedia article | Blog draft | Contradictions table |
 | Messy notes | Background article | Six-slide pitch |
-| Photo | Visual reference | Edited photo (gpt-image-1) |
+| Room photo | Furniture photo | Furniture placed in your room (gpt-image-2) |
+| Photo | Visual reference | Edited photo (gpt-image-2) |
 
 Every result comes with follow-ups ("Make a practice test on my weak spots"), which re-fuse the same two screens with a new instruction.
+
+### Fuse two images
+
+Put a room photo on one Photo surface and a furniture photo on the other, in either order. Fold, or say “Put this chair beside the window in my room.” Fuse sees both photos, chooses a visual composition for this pair, and sends both references to the image editor. The result view displays the generated image and offers **Save to Photos**. Requests to compare products or read documents still produce text.
+
+For two real apps, use **Take Screenshot → Fuse Screens** with the instruction and layout filled in. A successful image result appears in the native result card and is saved in Fuse history. Background completion depends on the system's execution budget and API latency. See [the two-image test and demo guide](docs/IMAGE_FUSION.md) for setup, acceptance checks and demo limitations.
 
 
 ## Fuse anywhere
@@ -113,7 +120,7 @@ Now a double tap on the back of the closed Duo fuses whatever is on the two scre
                                FuseEngine
               Prompts.system + Prompts.describe(left) + describe(right)
               ──▶ OpenAI gpt-6-sol  (vision, response_format: json_object)
-              ──▶ gpt-image-1       (only for image_edit artifacts)
+              ──▶ gpt-image-2       (only for image_edit artifacts)
                                     │
                                     ▼
                                FuseResult

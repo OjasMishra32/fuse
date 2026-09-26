@@ -89,12 +89,12 @@ enum SurfacePreset {
 // MARK: - Helpers shared by surfaces
 
 extension UIImage {
-    /// Downscale so the longest edge is `maxEdge` points. Keeps model payloads small.
+    /// Downscale so the longest edge is `maxEdge` pixels, including Retina images.
     func fuseDownscaled(maxEdge: CGFloat = 1024) -> UIImage {
         let longest = max(size.width, size.height)
-        guard longest > maxEdge else { return self }
-        let scale = maxEdge / longest
-        let target = CGSize(width: size.width * scale, height: size.height * scale)
+        guard maxEdge > 0, longest * scale > maxEdge else { return self }
+        let ratio = maxEdge / longest
+        let target = CGSize(width: size.width * ratio, height: size.height * ratio)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         return UIGraphicsImageRenderer(size: target, format: format).image { _ in
