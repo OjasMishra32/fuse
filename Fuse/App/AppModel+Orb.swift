@@ -46,12 +46,6 @@ extension AppModel {
             return
         }
         let a = visits[0], b = visits[1]
-        let left = SurfaceSnapshot(kind: .web, title: a.title, text: (a.selection.isEmpty ? "" : "SELECTED: \(a.selection)\n\n") + a.text, metadata: ["url": a.url])
-        let right = SurfaceSnapshot(kind: .web, title: b.title, text: (b.selection.isEmpty ? "" : "SELECTED: \(b.selection)\n\n") + b.text, metadata: ["url": b.url])
-
-        // Mirror into the halves so the app matches the orb when it comes back.
-        if let ua = URL(string: a.url) { self.left.apply(.url(ua), as: .web) }
-        if let ub = URL(string: b.url) { self.right.apply(.url(ub), as: .web) }
 
         phase = .fusing
         fusingStage = FuseEngine.Stage.reading.rawValue
@@ -61,6 +55,15 @@ extension AppModel {
         Task { [weak self] in
             guard let self else { return }
             do {
+                // Pages showing a photo come in as that photo, loaded at full resolution.
+                async let leftSnapshot = a.snapshot()
+                async let rightSnapshot = b.snapshot()
+                let (left, right) = try await (leftSnapshot, rightSnapshot)
+
+                // Mirror into the halves so the app matches the orb when it comes back.
+                self.place(a, snapshot: left, on: self.left)
+                self.place(b, snapshot: right, on: self.right)
+
                 let result = try await FuseEngine().fuse(left: left, right: right, instruction: nil) { stage in
                     Task { @MainActor in
                         self.fusingStage = stage.rawValue

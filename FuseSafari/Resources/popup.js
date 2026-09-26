@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 let lastResult = null;
 let styleInjected = false;
+let photos = false;
 
 async function native(payload) {
   return browser.runtime.sendMessage(Object.assign({ kind: "status" }, payload));
@@ -24,14 +25,17 @@ async function refreshStatus() {
   const box = $("pages");
   box.textContent = "";
   const pages = (s && s.pages) || [];
+  photos = !!(s && s.photos);
   if (pages.length === 0) {
     const row = document.createElement("div"); row.className = "row muted"; row.textContent = "Read two pages in Safari, then come back."; box.appendChild(row);
   } else {
     for (const p of pages) {
       const row = document.createElement("div"); row.className = "row";
-      const dot = document.createElement("span"); dot.className = "dot";
+      let mark;
+      if (p.thumb) { mark = document.createElement("img"); mark.className = "thumb"; mark.alt = ""; mark.src = p.thumb; }
+      else { mark = document.createElement("span"); mark.className = "dot"; }
       const t = document.createElement("span"); t.className = "t"; t.textContent = p.title || p.url;
-      row.appendChild(dot); row.appendChild(t);
+      row.appendChild(mark); row.appendChild(t);
       box.appendChild(row);
     }
     if (pages.length === 1) {
@@ -39,6 +43,7 @@ async function refreshStatus() {
     }
   }
   $("fuse").disabled = pages.length < 2;
+  $("fuse-label").textContent = photos ? "Fuse these photos" : "Fuse these";
   if (s && s.hasKey === false) { $("err").style.display = "block"; $("err").textContent = "Open Fuse once so it can share its key with Safari."; }
 }
 
@@ -46,7 +51,7 @@ function setBusy(busy) {
   const b = $("fuse");
   b.disabled = busy;
   b.classList.toggle("busy", busy);
-  $("fuse-label").textContent = busy ? "Fusing" : "Fuse these";
+  $("fuse-label").textContent = busy ? (photos ? "Fusing, about a minute" : "Fusing") : (photos ? "Fuse these photos" : "Fuse these");
 }
 
 function showResult(r) {
@@ -57,7 +62,7 @@ function showResult(r) {
   box.appendChild(window.FuseRender.render(r, { onFollowUp: (text) => fuse(text) }));
   document.body.classList.add("done");
   $("body").scrollTop = 0;
-  $("copy").textContent = "Copy";
+  $("copy").textContent = r.image ? "Copy Photo" : "Copy";
 }
 
 async function fuse(instruction) {
@@ -82,6 +87,25 @@ $("instruction").addEventListener("keydown", (e) => { if (e.key === "Enter" && !
 $("again").addEventListener("click", () => { document.body.classList.remove("done"); $("body").scrollTop = 0; });
 $("copy").addEventListener("click", async () => {
   if (!lastResult) return;
-  try { await navigator.clipboard.writeText(window.FuseRender.plainText(lastResult)); $("copy").textContent = "Copied"; } catch (e) {}
+  try {
+    // Safari only takes PNG on the clipboard, and only when the item is created inside the tap.
+    if (lastResult.image) await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob(lastResult.image) })]);
+    else await navigator.clipboard.writeText(window.FuseRender.plainText(lastResult));
+    $("copy").textContent = "Copied";
+  } catch (e) {}
 });
+function pngBlob(dataURL) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      c.toBlob((blob) => blob ? resolve(blob) : reject(new Error("no image")), "image/png");
+    };
+    img.onerror = () => reject(new Error("no image"));
+    img.src = dataURL;
+  });
+}
+
 refreshStatus();

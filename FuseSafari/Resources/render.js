@@ -25,6 +25,9 @@ ${R}{--fr-label:rgba(0,0,0,0.9);--fr-secondary:rgba(60,60,67,0.6);--fr-fill:rgba
 ${S}.fr{font-family:-apple-system,system-ui,"SF Pro Text",sans-serif;color:var(--fr-label);font-size:15px;line-height:1.35;-webkit-font-smoothing:antialiased}
 ${S}.fr *{box-sizing:border-box;margin:0;padding:0;font-family:inherit;color:inherit;line-height:inherit;text-align:left}
 ${S}.fr-title{font-size:17px;font-weight:600;letter-spacing:-0.2px;margin:0 16px 4px}
+${S}.fr-photo{display:block;width:calc(100% - 32px);height:auto;margin:0 16px 10px;border-radius:14px;background:var(--fr-fill);-webkit-touch-callout:default}
+${S}.fr-caption{font-size:13px;color:var(--fr-secondary);margin:0 16px 6px}
+${S}.fr-photo-hint{font-size:13px;color:var(--fr-secondary);margin:0 16px 10px}
 ${S}.fr-summary{font-size:15px;font-weight:400;color:var(--fr-secondary);margin:0 16px 12px}
 ${S}.fr-section{font-size:13px;font-weight:600;color:var(--fr-secondary);text-transform:uppercase;letter-spacing:0.3px;margin:14px 16px 6px}
 ${S}.fr-card{background:var(--fr-fill);border-radius:14px;margin:0 16px 12px;padding:11px 14px}
@@ -280,6 +283,17 @@ ${S}.fr-next .fr-row-body{font-size:15px}
     box.innerHTML = markdownHTML(md);
   }
 
+  // A fused photo: the preview the extension sent (the full-size photo waits in the app).
+  function renderImage(r, a, out) {
+    const src = r.image || "";
+    if (!src) return renderMarkdown(str(a.caption || a.prompt || r.text), out);
+    const img = add(out, "img", "fr-photo");
+    img.alt = str(a.caption || r.title || "Fused photo");
+    img.src = src;
+    if (a.caption) add(out, "div", "fr-caption", a.caption);
+    add(out, "div", "fr-photo-hint", "Touch and hold the photo to save it. The full-size photo is waiting in Fuse.");
+  }
+
   function renderBody(r, out) {
     const a = r.artifact || {};
     const type = r.type || a.type || "markdown";
@@ -295,6 +309,7 @@ ${S}.fr-next .fr-row-body{font-size:15px}
         case "code": return renderCode(a, out);
         case "diff": return renderDiff(a, out);
         case "grade": return renderGrade(a, out);
+        case "image": return renderImage(r, a, out);
         case "markdown": if (a.markdown) return renderMarkdown(a.markdown, out); break;
       }
     } catch (e) { /* fall through to plain text */ }

@@ -34,6 +34,7 @@ Some pairs and what they produce:
 | Wikipedia article | Blog draft | Contradictions table |
 | Messy notes | Background article | Six-slide pitch |
 | Room photo | Furniture photo | Furniture placed in your room (gpt-image-2) |
+| Photo of a person (Safari) | Photo of another person (Safari) | One realistic photo of both of them together |
 | Photo | Visual reference | Edited photo (gpt-image-2) |
 
 Every result comes with follow-ups ("Make a practice test on my weak spots"), which re-fuse the same two screens with a new instruction.

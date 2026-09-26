@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import CryptoKit
 
 // MARK: - SharedInbox
 //
@@ -73,6 +74,18 @@ enum SharedInbox {
         var text: String
         var selection: String
         var at: Date = Date()
+        /// Set when the page was mainly showing one photo (an image opened in Safari, an image viewer, a photo page).
+        var image: PageImageRef? = nil
+    }
+
+    /// The photo a page was showing. `url` for http(s) images; `file` (relative to the group
+    /// container) for inline images the page only had as data, saved by `storePageImage`.
+    struct PageImageRef: Codable, Equatable {
+        var url: String?
+        var file: String?
+        var alt: String
+        var width: Int
+        var height: Int
     }
 
     private static let recentsKey = "fuse.recents"
@@ -93,6 +106,34 @@ enum SharedInbox {
 
     static func clearRecents() {
         defaults?.removeObject(forKey: recentsKey)
+    }
+
+    /// Saves an inline page image once (named by its content hash) and returns its relative name.
+    static func storePageImage(_ data: Data) -> String? {
+        guard let container = containerURL, !data.isEmpty else { return nil }
+        let dir = container.appendingPathComponent("pages", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let digest = SHA256.hash(data: data).prefix(12).map { String(format: "%02x", $0) }.joined()
+        let name = "pages/\(digest).img"
+        let url = container.appendingPathComponent(name)
+        if FileManager.default.fileExists(atPath: url.path) { return name }
+        do {
+            try data.write(to: url)
+            return name
+        } catch {
+            return nil
+        }
+    }
+
+    static func pageImageURL(_ name: String) -> URL? {
+        containerURL?.appendingPathComponent(name)
+    }
+
+    /// Returns and clears a result produced outside the app (the Safari extension), if any.
+    static func takeBackgroundResult() -> Data? {
+        guard let data = defaults?.data(forKey: lastBackgroundResultKey) else { return nil }
+        defaults?.removeObject(forKey: lastBackgroundResultKey)
+        return data
     }
 
     static func fileURL(for item: Item) -> URL? {

@@ -17,3 +17,5 @@ Config/Secrets.local.xcconfig
 
 # macOS
 .DS_Store
+
+__pycache__/

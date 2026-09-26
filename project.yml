@@ -169,6 +169,7 @@ targets:
       - path: Fuse/Engine/Prompts.swift
       - path: Fuse/Engine/FuseResult.swift
       - path: Fuse/Engine/ArtifactText.swift
+      - path: Fuse/Engine/PageImage.swift
       - path: Fuse/App/AppConfig.swift
       - path: FuseSafari/Resources/manifest.json
         buildPhase: resources

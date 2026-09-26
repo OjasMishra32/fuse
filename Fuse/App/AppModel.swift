@@ -396,11 +396,9 @@ final class AppModel {
     func importSharedItems() -> Bool {
         guard !jobDemoActive else { return false }
         AppConfig.syncToGroup()
-        if let data = SharedInbox.defaults?.data(forKey: SharedInbox.lastBackgroundResultKey) {
-            SharedInbox.defaults?.removeObject(forKey: SharedInbox.lastBackgroundResultKey)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            if let result = try? decoder.decode(FuseResult.self, from: data) {
+        if let data = SharedInbox.takeBackgroundResult() {
+            // Same (default) date strategy as the extension's JSONEncoder, or createdAt fails to decode.
+            if let result = try? JSONDecoder().decode(FuseResult.self, from: data) {
                 HistoryStore.shared.add(result)
                 open(result)
                 flash("Fused in Safari")
@@ -433,6 +431,10 @@ final class AppModel {
     private func stageRecentPages() {
         let fresh = SharedInbox.recentVisits().filter { Date().timeIntervalSince($0.at) < 45 * 60 }
         guard let first = fresh.first else { return }
+        if fresh.prefix(2).contains(where: { $0.image != nil }) {
+            stagePhotoPages(Array(fresh.prefix(2)))
+            return
+        }
         if let a = URL(string: first.url) {
             left.apply(.url(a), as: .web)
         }
@@ -443,6 +445,35 @@ final class AppModel {
             flash("From Safari: \(first.title.prefix(40))")
         }
         lastStagedFromRecents = true
+    }
+
+    /// Pages that were showing a photo go on a half as that photo (loaded from Safari's page);
+    /// the rest open as pages. Opened from the cover with the phone folded, the fold is the
+    /// command: it fuses as soon as both halves are in.
+    private func stagePhotoPages(_ pages: [SharedInbox.Visit]) {
+        let foldedOnArrival = isClosed
+        flash("From Safari: " + pages.map { String($0.title.prefix(24)) }.joined(separator: " + "))
+        Task { [weak self] in
+            guard let self else { return }
+            for (visit, pane) in zip(pages, [self.left, self.right]) {
+                let snapshot = try? await visit.snapshot()
+                self.place(visit, snapshot: snapshot, on: pane)
+            }
+            if foldedOnArrival && self.isClosed && self.readiness == 2 && self.phase == .compose {
+                self.fuse(trigger: .fold)
+            }
+        }
+    }
+
+    /// Puts a Safari page on a half: its photo on the Photo surface (captioned with the page
+    /// title), or the page itself in the browser.
+    func place(_ visit: SharedInbox.Visit, snapshot: SurfaceSnapshot?, on pane: Pane) {
+        if let snapshot, snapshot.metadata["content"] == "photo", let photo = snapshot.heroImage {
+            pane.apply(.image(photo), as: .photo)
+            pane.apply(.text(visit.title), as: .photo)
+        } else if let url = URL(string: visit.url) {
+            pane.apply(.url(url), as: .web)
+        }
     }
 
     /// Something copied in another app goes on the first empty half.
