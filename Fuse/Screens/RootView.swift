@@ -22,9 +22,6 @@ struct RootView: View {
                 CoverView(model: model)
             } else {
                 mainStage
-                if model.anyHome && model.phase == .compose {
-                    topBar.transition(.opacity)
-                }
             }
 
             if let hint = model.hint {
