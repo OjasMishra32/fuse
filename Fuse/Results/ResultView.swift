@@ -20,9 +20,11 @@ struct ResultView: View {
     private var gutter: CGFloat { compact ? 16 : 24 }
 
     var body: some View {
+        GeometryReader { proxy in
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: compact ? 18 : 24) {
                 header
+                    .padding(.trailing, proxy.safeAreaInsets.trailing)
                     .reveal(appeared, index: 0)
                 artifact
                     .reveal(appeared, index: 1)
@@ -37,6 +39,8 @@ struct ResultView: View {
             .padding(.top, compact ? 8 : 12)
             .padding(.bottom, 36)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .ignoresSafeArea(edges: .horizontal)
         }
         .background { Theme.grouped.ignoresSafeArea() }
         .environment(\.fuseCompact, compact)
