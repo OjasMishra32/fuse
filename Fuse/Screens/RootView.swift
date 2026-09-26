@@ -16,7 +16,9 @@ struct RootView: View {
         ZStack {
             Theme.background
 
-            if model.isClosed {
+            if model.jobDemoActive {
+                JobApplicationWorkspaceView(model: model)
+            } else if model.isClosed {
                 CoverView(model: model)
             } else {
                 mainStage
@@ -66,21 +68,25 @@ struct RootView: View {
             model.schedulePreview()
         }
         .onChange(of: scenePhase) { _, phase in
+            model.jobSceneActive = phase == .active
             if phase == .active {
                 model.importSharedItems()
-                model.attachOrb()
+                if !model.jobDemoActive { model.attachOrb() }
             }
         }
         .onOpenURL { url in
             model.handle(url: url)
         }
+        .onDisappear { model.jobWorkspaceVisible = false }
         .onAppear {
+            model.jobWorkspaceVisible = true
+            model.jobSceneActive = scenePhase == .active
             RevenueCatService.shared.configure()
             Task { await SupabaseService.shared.ensureSession() }
             if let command = bus.take() { model.handle(command) }
             model.importSharedItems()
             model.schedulePreview()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { model.attachOrb() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { if !model.jobDemoActive { model.attachOrb() } }
         }
     }
 
