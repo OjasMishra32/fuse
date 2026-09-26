@@ -114,3 +114,10 @@ Notation: **SAY** is voice-over, **DO** is what happens on screen.
 - If the web surface fails to load, the demo menu re-applies the scenario; the Wikipedia URLs are stable.
 - If the hinge simulator is not responding, hold Option and use the slider; the melt is identical.
 - Keep every fold under one second on camera. The result should appear while the phone is still closing.
+
+
+## Beat to add: Fuse anywhere (20 s)
+
+SAY: "And you don't have to be in Fuse. Two real apps, side by side."
+DO: Open Safari (an event page) on the left half and Calendar on the right — normal iOS multitasking. Double-tap the back (in the simulator: run the *Fuse* shortcut from the Shortcuts app, or say "Fuse my screen").
+SAY: "Screenshot, split at the fold, fused." Fuse opens with both halves already loaded, melts, and the event lands on the cover.

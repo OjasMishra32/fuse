@@ -63,7 +63,7 @@ final class ShareViewController: UIViewController {
     private func deliver(to side: SharedInbox.Item.Side) {
         var item: SharedInbox.Item
         if let data = payload.imageData, let name = SharedInbox.store(data: data, preferredName: "photo.jpg") {
-            item = .init(side: side, kind: .image, title: "Photo", fileName: name)
+            item = .init(side: side, kind: side == .both ? .screen : .image, title: side == .both ? "Screenshot" : "Photo", fileName: name)
         } else if let file = payload.fileURL {
             let accessing = file.startAccessingSecurityScopedResource()
             defer { if accessing { file.stopAccessingSecurityScopedResource() } }
@@ -145,6 +145,18 @@ struct ShareView: View {
                 HStack(spacing: 12) {
                     halfButton("Left screen", symbol: "rectangle.lefthalf.inset.filled") { onPick(.left) }
                     halfButton("Right screen", symbol: "rectangle.righthalf.inset.filled") { onPick(.right) }
+                }
+                if payload.imageData != nil {
+                    Button {
+                        onPick(.both)
+                    } label: {
+                        Label("Both halves — it's a screenshot of two apps", systemImage: "rectangle.split.2x1")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.roundedRectangle(radius: 14))
                 }
                 Spacer()
             }

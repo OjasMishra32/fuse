@@ -96,4 +96,9 @@ enum Prompts {
     }
 
     static let closing = "Respond with the JSON object only."
+
+    /// Used when the two inputs are the two halves of one screenshot of the open phone.
+    static let screenshotFraming = """
+    CONTEXT: The user was using two real apps side by side on the foldable phone and captured the whole screen. The LEFT image is the left app as it was on screen; the RIGHT image is the right app. Read each image as a live app screen: identify the app (Safari, Maps, Messages, Mail, Calendar, Notes, a PDF, a photo…), extract every fact visible (names, times, prices, addresses, message text, map pins), then fuse them exactly as if the two screens had been handed to you as text. Do not describe the screenshots; produce the result.
+    """
 }

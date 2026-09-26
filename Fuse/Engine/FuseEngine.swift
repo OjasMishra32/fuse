@@ -26,12 +26,14 @@ struct FuseEngine {
         right: SurfaceSnapshot,
         instruction: String?,
         suggested: String? = nil,
+        framing: String? = nil,
         progress: @escaping @Sendable (Stage) -> Void
     ) async throws -> FuseResult {
         progress(.reading)
 
         var parts: [OpenAIClient.Part] = []
         parts.append(.text(Prompts.userPreamble(instruction: instruction, suggested: suggested)))
+        if let framing { parts.append(.text(framing)) }
         parts.append(.text(Prompts.describe(left, side: "left")))
         if let img = left.image { parts.append(.image(img)) }
         parts.append(.text(Prompts.describe(right, side: "right")))

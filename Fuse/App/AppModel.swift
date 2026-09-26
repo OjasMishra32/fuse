@@ -206,7 +206,8 @@ final class AppModel {
         fusingStage = FuseEngine.Stage.reading.rawValue
         fusingStartedAt = Date()
         let spoken = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
-        let suggested = spoken.isEmpty ? suggestions.first?.instruction : nil
+        let suggested = spoken.isEmpty ? (screenshotMode ? nil : suggestions.first?.instruction) : nil
+        let framing = screenshotMode ? Prompts.screenshotFraming : nil
 
         fuseTask?.cancel()
         fuseTask = Task { [weak self] in
@@ -217,7 +218,7 @@ final class AppModel {
             guard !Task.isCancelled else { return }
             do {
                 let engine = FuseEngine()
-                let result = try await engine.fuse(left: l, right: r, instruction: spoken.isEmpty ? nil : spoken, suggested: suggested) { stage in
+                let result = try await engine.fuse(left: l, right: r, instruction: spoken.isEmpty ? nil : spoken, suggested: suggested, framing: framing) { stage in
                     Task { @MainActor in self.fusingStage = stage.rawValue }
                 }
                 guard !Task.isCancelled else { return }
@@ -274,6 +275,7 @@ final class AppModel {
             foldProgress = 0
         }
         instruction = ""
+        screenshotMode = false
         armed = true
     }
 
@@ -315,6 +317,12 @@ final class AppModel {
         let items = SharedInbox.drain()
         guard !items.isEmpty else { return }
         for item in items {
+            if item.kind == .screen {
+                if let url = SharedInbox.fileURL(for: item), let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
+                    fuseScreenshot(image)
+                }
+                continue
+            }
             let pane = item.side == .left ? left : right
             switch item.kind {
             case .url:
@@ -327,6 +335,8 @@ final class AppModel {
                 }
             case .file:
                 if let url = SharedInbox.fileURL(for: item) { pane.apply(.document(url), as: .document) }
+            case .screen:
+                break
             }
         }
         if phase != .compose { dismissResult() }
@@ -335,11 +345,53 @@ final class AppModel {
         flash("\(last.title) → \(last.side == .left ? "left" : "right") screen")
     }
 
+    // MARK: Fuse anywhere — a screenshot of two apps side by side
+
+    /// Split a screenshot of the open phone along the fold and fuse the two apps that were on it.
+    /// This is how Fuse works from *any* app: Back Tap → Shortcut (Take Screenshot → Fuse Screenshot).
+    func fuseScreenshot(_ image: UIImage) {
+        let (a, b) = Self.splitAtFold(image)
+        if phase != .compose { dismissResult() }
+        left.apply(.image(a), as: .photo)
+        right.apply(.image(b), as: .photo)
+        instruction = ""
+        screenshotMode = true
+        Haptics.medium()
+        fuse(trigger: .intent)
+    }
+
+    /// True while the current fuse came from a whole-screen capture (changes the prompt framing).
+    var screenshotMode = false
+
+    static func splitAtFold(_ image: UIImage) -> (UIImage, UIImage) {
+        guard let cg = image.cgImage else { return (image, image) }
+        let w = cg.width, h = cg.height
+        let vertical = w >= h   // fold runs top→bottom when the capture is wider than tall
+        let first = vertical ? CGRect(x: 0, y: 0, width: w / 2, height: h) : CGRect(x: 0, y: 0, width: w, height: h / 2)
+        let second = vertical ? CGRect(x: w / 2, y: 0, width: w - w / 2, height: h) : CGRect(x: 0, y: h / 2, width: w, height: h - h / 2)
+        let a = cg.cropping(to: first).map { UIImage(cgImage: $0, scale: image.scale, orientation: image.imageOrientation) } ?? image
+        let b = cg.cropping(to: second).map { UIImage(cgImage: $0, scale: image.scale, orientation: image.imageOrientation) } ?? image
+        return (a, b)
+    }
+
+    /// Fallback for the intent when no screenshot was passed: the newest screenshot in Photos (last 3 minutes).
+    func fuseLatestScreenshot() async {
+        if let image = await LatestScreenshot.fetch(maxAge: 180) {
+            fuseScreenshot(image)
+        } else {
+            flash("No recent screenshot — take one of both apps, then fuse")
+        }
+    }
+
     // MARK: Commands from intents / Back Tap / Shortcuts
 
     func handle(_ command: AppCommand) {
         switch command {
-        case .fuse: fuse(trigger: .intent)
+        case .fuse:
+            if readiness == 0 { Task { await fuseLatestScreenshot() } } else { fuse(trigger: .intent) }
+        case .fuseScreenshot:
+            importSharedItems()
+            if !screenshotMode { Task { await fuseLatestScreenshot() } }
         case .listen: NotificationCenter.default.post(name: .fuseStartListening, object: nil)
         case .reset: resetPanes()
         case .demo(let id):
@@ -374,6 +426,7 @@ extension Comparable {
 
 enum AppCommand: Equatable {
     case fuse
+    case fuseScreenshot
     case listen
     case reset
     case demo(String)

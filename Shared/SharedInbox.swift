@@ -13,8 +13,8 @@ enum SharedInbox {
     private static let key = "fuse.inbox.items"
 
     struct Item: Codable {
-        enum Side: String, Codable { case left, right }
-        enum Kind: String, Codable { case url, text, image, file }
+        enum Side: String, Codable { case left, right, both }
+        enum Kind: String, Codable { case url, text, image, file, screen }   // screen = a screenshot of two apps side by side; split at the fold
         var side: Side
         var kind: Kind
         var title: String

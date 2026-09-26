@@ -12,6 +12,7 @@
 		0F1FEE97B4BB0E51D492DC1C /* DemoScenarios+More.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD2B26D5D65846096577449 /* DemoScenarios+More.swift */; };
 		0F74D642F1AB9E1591CE6DC9 /* PhotoSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F04D9D81D4E2241C4753B03 /* PhotoSurface.swift */; };
 		0FBC42C2D1C8A74F0DB72FA6 /* FuseShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 99913AA3B904BDB6BDB4F44A /* FuseShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		10F2771E023DC6CD9E56EE6B /* LatestScreenshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37CE0ECFA6E2AA7A24478E11 /* LatestScreenshot.swift */; };
 		1234C6929E679C96DAD9F61D /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7479034F6DF0BD2AFC50953B /* HistoryStore.swift */; };
 		123E1880C6287F6812ECE7FC /* CalendarSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8890F79D1D500CEC7138381 /* CalendarSurface.swift */; };
 		16715747B756ECE431C6EE47 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592475C81E20B9AB0021F610 /* ShareSheet.swift */; };
@@ -105,6 +106,7 @@
 		25F3A57732F2863C6C5EAB99 /* ClipboardSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardSurface.swift; sourceTree = "<group>"; };
 		2D311FB6B2A65A91E6C6B8F0 /* SeamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeamView.swift; sourceTree = "<group>"; };
 		374971D815B08305983A98CB /* Surface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Surface.swift; sourceTree = "<group>"; };
+		37CE0ECFA6E2AA7A24478E11 /* LatestScreenshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LatestScreenshot.swift; sourceTree = "<group>"; };
 		3EDF2E64E1A1268006D61870 /* MeltOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeltOverlay.swift; sourceTree = "<group>"; };
 		592475C81E20B9AB0021F610 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		5F2C8658C33905A8A41B9DDF /* FuseEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuseEngineTests.swift; sourceTree = "<group>"; };
@@ -221,6 +223,7 @@
 			isa = PBXGroup;
 			children = (
 				7479034F6DF0BD2AFC50953B /* HistoryStore.swift */,
+				37CE0ECFA6E2AA7A24478E11 /* LatestScreenshot.swift */,
 				AE62A7AEEFD3C2E05FFFDA7E /* RevenueCatService.swift */,
 				F4EA3F0F8470BC7586547AC4 /* SpeechService.swift */,
 				A9EC931C678D545B718CEEAF /* SupabaseService.swift */,
@@ -498,6 +501,7 @@
 				A0296BF9C416C58C7D832489 /* IntentPreview.swift in Sources */,
 				A645A37EC95F1C36DC3D11C6 /* InteractiveArtifactViews.swift in Sources */,
 				222D5F5471661BBD908BC9BB /* ItineraryArtifactView.swift in Sources */,
+				10F2771E023DC6CD9E56EE6B /* LatestScreenshot.swift in Sources */,
 				42F8BD4F53922E425B35C18E /* MapSurface.swift in Sources */,
 				FBE795EF7A452C3DBAECC82F /* MarkdownArtifactView.swift in Sources */,
 				8CE7ACAD483B69D602EB549B /* MeltOverlay.swift in Sources */,

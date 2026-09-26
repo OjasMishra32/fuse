@@ -29,6 +29,16 @@ Some pairs and what they produce:
 Every result comes with follow-ups ("Make a practice test on my weak spots"), which re-fuse the same two screens with a new instruction.
 
 
+## Fuse anywhere
+
+Any two real apps, side by side on the Duo, no Fuse open:
+
+1. Shortcuts → new shortcut → add **Take Screenshot** → add **Fuse Screenshot** (from Fuse; it takes the screenshot as input) → name it *Fuse*.
+2. Settings → Accessibility → Touch → **Back Tap** → Double Tap → *Fuse*. (Or assign it to the Action Button.)
+3. Open Safari on one half and Maps, Messages, Mail, Calendar or a PDF on the other. Double-tap the back of the phone.
+
+Fuse opens with the two halves of that screenshot as its two screens, melts them, and produces the result. Saying "Fuse my screen" to Siri does the same, and the plain **Fuse** shortcut with nothing on the halves uses the newest screenshot in Photos.
+
 ## Using your phone, not an app
 
 Fuse is meant to sit underneath whatever you are already doing:
