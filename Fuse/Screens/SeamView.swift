@@ -44,6 +44,11 @@ struct SeamView: View {
         }
         .position(center)
         .animation(Theme.smooth, value: model.readiness)
+        .contentShape(Rectangle().size(width: 44, height: size.height))
+        .onTapGesture(count: 3) {
+            Haptics.rigid()
+            withAnimation(Theme.snappy) { model.showDevPanel.toggle() }
+        }
     }
 
     // MARK: Fold invite (after typing an instruction)
@@ -67,10 +72,8 @@ struct SeamView: View {
     private var foldInvite: some View {
         VStack(spacing: 4) {
             HStack(spacing: 8) {
-                Image(systemName: fold.isVertical ? "arrow.right.and.line.vertical.and.arrow.left" : "arrow.down.and.line.horizontal.and.arrow.up")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .symbolEffect(.pulse, options: .repeating)
+                OrbView(size: 18, animated: true, intensity: 1)
+                    .frame(width: 22, height: 22)
                 Text("Fold to fuse")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
