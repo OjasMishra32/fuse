@@ -98,7 +98,7 @@ struct JobApplicationWorkspaceView: View {
     private func pane(title: String, symbol: String, content: any SurfaceModel) -> some View {
         VStack(spacing: 0) {
             HStack {
-                Label(title, systemImage: symbol).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Label(content.kind == .web ? "THE OPPORTUNITY" : "YOUR EXPERIENCE", systemImage: content.kind == .web ? "safari" : "note.text").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer()
                 Text("Inside FUSE").font(.caption2).foregroundStyle(.tertiary)
             }.padding(.horizontal, 16).padding(.vertical, 10).background(Theme.groupedCard)

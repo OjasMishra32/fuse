@@ -53,3 +53,9 @@ This is an explicitly labeled browser replay of the previously generated fiction
 ## Integration validation
 
 Rebased onto team main `631ba58`, retaining its image-fusion and scenario updates. The job-specific close guard is routed before the generic fold handler, so unprepared closes and closed launches do not submit. The shared AI client now includes image-related errors; the job flow handles those without exposing raw service responses. Physical close-to-cover behavior still requires simulator verification; the explicit preview remains available.
+
+## Native application UI update
+
+The completed native screen now leads with **Application filled. Résumé customized.** and populated name, email, customized résumé, and cover-letter fields. Documents expand inline; the local delivery receipt is secondary. Complete sample job/résumé pairs activate this native route in either pane order, including manually staged pairs. Partial résumés and unrelated URLs are not silently submitted.
+
+Validation: 66 native tests pass, including both pane orders, incomplete-pair rejection, and recognition when the résumé body changes without its headline changing. Installed the updated `local.fuse.review` build in Bitrig. A fresh application and local delivery receipt were observed in the native UI. Automated host fold controls intermittently change their selected state without delivering the corresponding hinge update; physical gesture validation remains distinct from the working in-app preview.

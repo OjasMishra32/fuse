@@ -94,7 +94,7 @@ final class AppModel {
     var contentKey: String {
         let leftPhotoRevision = (left.model as? PhotoSurfaceModel)?.contentRevision ?? 0
         let rightPhotoRevision = (right.model as? PhotoSurfaceModel)?.contentRevision ?? 0
-        return "\(left.kind.rawValue)|\(left.isHome)|\(left.model.hasContent)|\(left.model.headline)|\(leftPhotoRevision)|\(right.kind.rawValue)|\(right.isHome)|\(right.model.hasContent)|\(right.model.headline)|\(rightPhotoRevision)"
+        return "\(left.kind.rawValue)|\(left.isHome)|\(left.model.hasContent)|\(left.model.headline)|\(leftPhotoRevision)|\(right.kind.rawValue)|\(right.isHome)|\(right.model.hasContent)|\(right.model.headline)|\(rightPhotoRevision)|jobPair:\(jobApplicationPair != nil)"
     }
 
     /// What the fold will do if the user doesn't say otherwise.
@@ -103,6 +103,7 @@ final class AppModel {
     // MARK: Intent preview
 
     func schedulePreview() {
+        activateJobApplicationIfRecognized()
         if jobDemoActive {
             previewTask?.cancel(); suggestions = []; isPreviewing = false
             return
@@ -153,6 +154,9 @@ final class AppModel {
     // MARK: Hinge
 
     func handleHinge(old: DeviceHingeContext, new: DeviceHingeContext) {
+        // Resolve a freshly staged sample before routing this event; activation can use
+        // the previously observed open hinge to arm the dedicated close gate.
+        activateJobApplicationIfRecognized()
         hinge = new.hinge
         guard let h = new.hinge else { return }
         let deg = h.angle.degrees
@@ -164,6 +168,12 @@ final class AppModel {
         // The application flow consumes an unprepared close and requires a fresh open.
         // Keep this gate separate from the generic fusion motion/recipe cache.
         if jobDemoActive {
+            if old.hinge?.status != h.status {
+                // A real pose change ends any manual simulator preview override.
+                // Actual display layout still comes from scene geometry/reserved regions.
+                jobForceInnerPreview = false
+                jobPreviewCover = false
+            }
             if jobFoldGate.observe(closed: h.status == .closed || deg < 22,
                                    open: h.status == .fullyOpen || deg > 120,
                                    eligible: jobCanCombine) {
@@ -236,6 +246,7 @@ final class AppModel {
     }
 
     func fuse(trigger: FuseTrigger) {
+        activateJobApplicationIfRecognized()
         if jobDemoActive { startJobApplication(trigger: trigger); return }
         guard phase != .fusing else { return }
         lastTrigger = trigger

@@ -43,7 +43,7 @@ struct JobApplicationView: View {
             .accessibilityLabel("Return to other demos")
             .accessibilityIdentifier("jobApplicationBack")
             if session.hasSubmitted, let onRestart {
-                Button("New demo application", action: onRestart)
+                Button("Start again", action: onRestart)
                     .font(.caption.weight(.semibold)).frame(minHeight: 44)
             }
             Spacer(minLength: 4)
@@ -61,14 +61,15 @@ struct JobApplicationView: View {
     private var compactContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                applicationHero
                 jobHeading
-                if session.receipt != nil {
-                    receiptCard
-                } else {
-                    progressCard
-                }
-                if case .failed(let message) = session.phase { failureCard(message) }
                 filledApplication
+                if session.isBusy { compactProgress }
+                if case .failed(let message) = session.phase { failureCard(message) }
+                if session.receipt != nil {
+                    DisclosureGroup("Delivery confirmation") { receiptCard.padding(.top, 12) }
+                        .font(.subheadline.weight(.medium)).tint(Theme.cyan)
+                }
                 if !session.tailoredResume.isEmpty || !session.coverLetter.isEmpty {
                     DisclosureGroup("Your application documents", isExpanded: $showCompactDocuments) {
                         documentTabs.padding(.top, 12)
@@ -82,6 +83,34 @@ struct JobApplicationView: View {
             .padding(20)
         }
         .accessibilityIdentifier("jobApplicationCompact")
+    }
+
+    private var applicationHero: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Label("RÉSUMÉ", systemImage: "doc.text").font(.caption2.weight(.bold))
+                Image(systemName: "plus").font(.caption2)
+                Label("JOB", systemImage: "briefcase").font(.caption2.weight(.bold))
+                Image(systemName: "arrow.right").font(.caption2)
+                Image(systemName: "sparkles").foregroundStyle(Theme.accent)
+            }.foregroundStyle(.secondary)
+            Text(session.filledFieldCount == 4 ? "Application filled.\nRésumé customized." : session.phase == .filling ? "The right words.\nIn the right places." : "Making your\nexperience count.")
+                .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                .fixedSize(horizontal: false, vertical: true)
+            Text(session.filledFieldCount == 4 ? "Your experience, tailored to this opportunity." : "FUSE is matching your experience to the role and filling your application.")
+                .font(.subheadline).foregroundStyle(.secondary)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 8)
+        .accessibilityIdentifier("jobApplicationHero")
+    }
+
+    private var compactProgress: some View {
+        HStack(spacing: 12) {
+            ProgressView().tint(Theme.accent)
+            Text(session.phase == .tailoring ? "Customizing your résumé…" : session.phase == .filling ? "Filling application details…" : "Confirming delivery…")
+                .font(.subheadline.weight(.medium))
+            Spacer()
+        }.padding(14).background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private var openContent: some View {
@@ -173,13 +202,11 @@ struct JobApplicationView: View {
             paneHeader("YOUR APPLICATION", subtitle: session.receipt == nil ? "Tailored for this specific role" : "Received by the demo service", symbol: "sparkles")
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    if session.receipt != nil {
-                        openReceiptSummary
-                    } else {
-                        progressCard
-                    }
-                    if case .failed(let message) = session.phase { failureCard(message) }
+                    applicationHero
                     filledApplication
+                    if session.isBusy { compactProgress }
+                    if session.receipt != nil { openReceiptSummary }
+                    if case .failed(let message) = session.phase { failureCard(message) }
                     if !session.tailoredResume.isEmpty || !session.coverLetter.isEmpty {
                         documentTabs
                         documentContent
@@ -215,7 +242,7 @@ struct JobApplicationView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(session.filledFieldCount == 4 ? "Application filled" : "Your application")
                         .font(.title3.bold())
-                    Text("Bright Labs · Merchant Growth").font(.caption).foregroundStyle(.secondary)
+                    Text("Your details, ready for this role").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text("\(session.filledFieldCount)/4").font(.caption.monospacedDigit().bold())
@@ -253,7 +280,7 @@ struct JobApplicationView: View {
                         Text(number == 3 ? "Tailored résumé · View document" : "Personalized cover letter · View")
                             .font(.subheadline.weight(.medium))
                     }.tint(Theme.violet)
-                    Text(value).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                    Text(number == 3 ? résuméExcerpt(value) : value).font(.caption).foregroundStyle(.secondary).lineLimit(3)
                 } else { Text(value).font(.subheadline).textSelection(.enabled) }
             } else {
                 Text(active ? "Filling…" : "Waiting for your tailored application")
@@ -264,6 +291,13 @@ struct JobApplicationView: View {
         .background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(active ? Theme.violet : Theme.line, lineWidth: active ? 2 : 1))
         .animation(.easeInOut(duration: 0.25), value: complete)
+    }
+
+    private func résuméExcerpt(_ value: String) -> String {
+        if let range = value.range(of: "PROFILE\n") {
+            return String(value[range.upperBound...]).components(separatedBy: "\n\n").first ?? value
+        }
+        return value
     }
 
     private var progressCard: some View {
@@ -501,7 +535,7 @@ struct JobApplicationView: View {
     }
 
     private var demoNotice: some View {
-        Label("Fictional role and sample candidate. This application goes only to the demo service.", systemImage: "info.circle")
+        Label("Sample application · local delivery", systemImage: "info.circle")
             .font(.caption).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
     }
