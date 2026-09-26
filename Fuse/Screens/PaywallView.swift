@@ -12,6 +12,7 @@ struct PaywallView: View {
     var onDismiss: () -> Void
 
     @State private var selectedPlanID: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var store: RevenueCatService { .shared }
 
@@ -48,7 +49,8 @@ struct PaywallView: View {
 
     private var hero: some View {
         VStack(spacing: 16) {
-            OrbView(size: 88, animated: true)
+            // Half speed: a slow breath rather than the Fusing screen's working rhythm.
+            OrbView(size: 88, animated: !reduceMotion, speed: 0.5)
                 .frame(width: 88, height: 88)
                 .padding(.top, 8)
             VStack(spacing: 6) {
@@ -178,23 +180,28 @@ struct PaywallView: View {
                 .buttonBorderShape(.capsule)
                 .controlSize(.large)
             } else {
+                // Continue keeps its height while the label gives way to a spinner.
                 Button {
                     Task { await continueTapped() }
                 } label: {
-                    Group {
+                    ZStack {
+                        Text("Continue")
+                            .fontWeight(.semibold)
+                            .opacity(store.isPurchasing ? 0 : 1)
                         if store.isPurchasing {
-                            ProgressView().tint(.white)
-                        } else {
-                            Text("Continue")
-                                .fontWeight(.semibold)
+                            ProgressView()
+                                .tint(.white)
+                                .transition(.opacity.combined(with: .scale(scale: 0.8)))
                         }
                     }
                     .frame(maxWidth: .infinity)
+                    .animation(Theme.snappy, value: store.isPurchasing)
                 }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.capsule)
                 .controlSize(.large)
                 .disabled(store.isPurchasing)
+                .accessibilityLabel(store.isPurchasing ? "Purchasing" : "Continue")
             }
 
             HStack(spacing: 24) {
@@ -325,6 +332,10 @@ private struct PlanRow: View {
     var selected: Bool
     var action: () -> Void
 
+    /// Bumps only when this row becomes the selection, so the checkmark bounces on arrival
+    /// and the row losing it simply fades back.
+    @State private var bounce = 0
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
@@ -333,6 +344,10 @@ private struct PlanRow: View {
                     .foregroundStyle(selected ? Color.accentColor : Color(uiColor: .tertiaryLabel))
                     .frame(width: 22)
                     .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, options: .nonRepeating, value: bounce)
+                    .onChange(of: selected) { _, isSelected in
+                        if isSelected { bounce += 1 }
+                    }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
                         Text(title)

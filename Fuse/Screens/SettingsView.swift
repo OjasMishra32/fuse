@@ -322,6 +322,7 @@ private struct StatusRow: View {
             Circle()
                 .fill(ok ? Color(uiColor: .systemGreen) : Color(uiColor: .tertiaryLabel))
                 .frame(width: 10, height: 10)
+                .animation(Theme.smooth, value: ok)
                 .accessibilityLabel(ok ? "Configured" : "Not configured")
         }
         .padding(.vertical, 2)

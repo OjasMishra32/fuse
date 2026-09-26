@@ -339,6 +339,7 @@ struct TableArtifactView: View {
 
 struct GradeArtifactView: View {
     let report: GradeReport
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var ringShown = false
 
     private var fraction: Double? { Self.fraction(from: report.score, items: report.items) }
@@ -433,7 +434,8 @@ struct GradeArtifactView: View {
 
     // MARK: Ring
 
-    /// 88pt accent ring on a system-fill track; the score sits inside.
+    /// 88pt accent ring on a system-fill track; the score sits inside. The ring draws from
+    /// empty to the score over 0.9 s once the card is on screen (at once with Reduce Motion).
     private var ring: some View {
         let value = fraction ?? 0
         return ZStack {
@@ -443,7 +445,7 @@ struct GradeArtifactView: View {
                 .trim(from: 0, to: ringShown ? CGFloat(value) : 0)
                 .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(Theme.smooth.delay(0.15), value: ringShown)
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.9).delay(0.15), value: ringShown)
             VStack(spacing: 0) {
                 Text(scoreLabel)
                     .font((scoreLabel.count > 4 ? Font.subheadline : Font.title3).weight(.semibold).monospacedDigit())
@@ -538,8 +540,10 @@ struct GradeArtifactView: View {
 struct ImageArtifactView: View {
     let image: ImageArtifact
     @Environment(\.fuseCompact) private var compact
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var saveState: SaveState = .idle
     @State private var pulse = false
+    @State private var sharp = false
     @State private var saver = PhotoSaver()
 
     private let decoded: UIImage?
@@ -557,13 +561,18 @@ struct ImageArtifactView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let ui = decoded {
+                // Resolves from a soft blur into focus as it lands, like a photo developing.
                 Image(uiImage: ui)
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: .infinity)
                     .frame(maxHeight: compact ? 360 : 420)
+                    .blur(radius: sharp ? 0 : 12)
+                    .opacity(sharp ? 1 : 0.4)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(Theme.line, lineWidth: 1))
+                    .animation(reduceMotion ? nil : Theme.smooth, value: sharp)
+                    .onAppear { sharp = true }
                     .accessibilityLabel(image.caption ?? "Generated image")
 
                 if let caption = image.caption?.trimmingCharacters(in: .whitespacesAndNewlines), !caption.isEmpty {
@@ -584,7 +593,7 @@ struct ImageArtifactView: View {
                     case .saving:
                         WorkingLabel(title: "Saving…")
                     case .saved:
-                        StatusPill(title: "Saved to Photos", symbol: "checkmark")
+                        StatusPill(title: "Saved to Photos", symbol: "checkmark", bounces: true)
                             .transition(.scale(scale: 0.9).combined(with: .opacity))
                     case .failed:
                         Button {
@@ -618,7 +627,7 @@ struct ImageArtifactView: View {
                             }
                             .opacity(pulse ? 1 : 0.6)
                             .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: pulse)
-                            .onAppear { pulse = true }
+                            .onAppear { if !reduceMotion { pulse = true } }
                             .accessibilityLabel("Generating image")
 
                         if !image.prompt.isEmpty {

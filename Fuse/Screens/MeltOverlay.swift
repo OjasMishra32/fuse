@@ -7,29 +7,63 @@ import SwiftUI
 //      system's intelligence glow), brightening as the fold deepens;
 //   2. each screen collapses into a glass drop that travels to the hinge; the drops are drawn
 //      through a blur + alpha-threshold filter so they behave like liquid and merge into one;
-//   3. at the end a single pulse of light runs along the seam.
-// Live previews of both screens ride inside the drops until they dissolve.
+//   3. at the end a single pulse of light runs along the seam, and as the fold completes the
+//      seam flashes white for 120 ms.
+// Live previews of both screens ride inside the drops until they dissolve. One rigid tap marks
+// the moment the drops merge; it fires once per fold and re-arms when the phone opens again.
 
 struct MeltOverlay: View {
     @Bindable var model: AppModel
     var fold: FoldGeometry
     var size: CGSize
 
+    /// Where the two drops read as one. Matches the bridge in `liquid`.
+    private static let mergeEase = 0.7
+    /// The flash lives this long, in seconds.
+    private static let flashDuration: TimeInterval = 0.12
+
+    @State private var mergeHapticFired = false
+    @State private var flashStart: TimeInterval?
+
     private var p: Double { model.foldProgress }
 
     var body: some View {
         let ease = p * p * (3 - 2 * p)
-        if p > 0.01 {
-            TimelineView(.animation(minimumInterval: 1 / 60)) { timeline in
-                let t = timeline.date.timeIntervalSinceReferenceDate
-                ZStack {
-                    edgeGlow(ease: ease, t: t)
-                    liquid(ease: ease, t: t)
-                    previews(ease: ease)
-                    seamPulse(ease: ease, t: t)
+        ZStack {
+            if p > 0.01 {
+                TimelineView(.animation(minimumInterval: 1 / 60)) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate
+                    ZStack {
+                        edgeGlow(ease: ease, t: t)
+                        liquid(ease: ease, t: t)
+                        previews(ease: ease)
+                        seamPulse(ease: ease, t: t)
+                        seamFlash(t: t)
+                    }
                 }
+                .transition(.opacity)
             }
-            .transition(.opacity)
+        }
+        .onChange(of: model.foldProgress) { _, progress in
+            commitmentMoments(progress: progress)
+        }
+    }
+
+    // MARK: Commitment: one haptic at the merge, one flash at the end
+
+    private func commitmentMoments(progress: Double) {
+        if progress < 0.5 {
+            mergeHapticFired = false
+            flashStart = nil
+            return
+        }
+        let ease = progress * progress * (3 - 2 * progress)
+        if ease >= Self.mergeEase, !mergeHapticFired {
+            mergeHapticFired = true
+            Haptics.rigid()
+        }
+        if progress >= 0.98, flashStart == nil {
+            flashStart = Date().timeIntervalSinceReferenceDate
         }
     }
 
@@ -173,6 +207,33 @@ struct MeltOverlay: View {
             .opacity(0.9 * k)
             .position(seam)
             .allowsHitTesting(false)
+        }
+    }
+
+    // MARK: Seam flash
+
+    /// A white line the full length of the seam that appears at once and is gone 120 ms later.
+    @ViewBuilder
+    private func seamFlash(t: TimeInterval) -> some View {
+        if let start = flashStart {
+            let k = max(0, 1 - (t - start) / Self.flashDuration)
+            if k > 0 {
+                let length = (fold.isVertical ? size.height : size.width) + 300
+                Group {
+                    if fold.isVertical {
+                        Capsule().fill(.white).frame(width: 6, height: length)
+                            .overlay(Capsule().fill(.white).frame(width: 28, height: length).blur(radius: 16))
+                    } else {
+                        Capsule().fill(.white).frame(width: length, height: 6)
+                            .overlay(Capsule().fill(.white).frame(width: length, height: 28).blur(radius: 16))
+                    }
+                }
+                .opacity(k)
+                .blendMode(.plusLighter)
+                .position(seam)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
         }
     }
 }

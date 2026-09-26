@@ -12,12 +12,17 @@ struct CommunityView: View {
     @State private var rows: [RemoteFuse] = []
     @State private var isLoading = false
     @State private var hasLoaded = false
+    @State private var appeared = false
 
     private var supabase: SupabaseService { .shared }
+
+    /// Rows past the first screen do not wait their turn; they are off screen anyway.
+    private static let staggerCap = 8
 
     var body: some View {
         NavigationStack {
             content
+                .animation(Theme.smooth, value: hasLoaded)
                 .navigationTitle("Community")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -43,6 +48,7 @@ struct CommunityView: View {
         } else if isLoading && !hasLoaded {
             ProgressView()
                 .controlSize(.large)
+                .transition(.opacity)
         } else if rows.isEmpty {
             // Wrapped in a scroll view so pull-to-refresh works on the empty state too.
             ScrollView {
@@ -53,11 +59,12 @@ struct CommunityView: View {
         } else {
             List {
                 Section {
-                    ForEach(rows) { row in
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                         Button {
                             open(row)
                         } label: {
                             FuseResultRow(title: row.title, subtitle: inputsLine(row), date: row.created_at)
+                                .reveal(appeared, index: min(index, Self.staggerCap), distance: 6)
                         }
                         .buttonStyle(.plain)
                         .swipeActions(edge: .leading) {
@@ -73,6 +80,13 @@ struct CommunityView: View {
             }
             .listStyle(.insetGrouped)
             .refreshable { await load() }
+            // Rows that a refresh drops close up with the control spring.
+            .animation(Theme.snappy, value: rows.map(\.id))
+            // Fires after the first rows exist, so they stagger in once; a refresh does not replay it.
+            .onAppear {
+                guard !appeared else { return }
+                appeared = true
+            }
         }
     }
 

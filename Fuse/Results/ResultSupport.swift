@@ -172,19 +172,29 @@ struct CopyButton: View {
 }
 
 /// A static confirmation pill ("Added to Calendar", "Saved to Photos"): green tint on a 12% fill.
+/// With `bounces`, the symbol bounces once as the pill lands, marking the commitment.
 struct StatusPill: View {
     var title: String
     var symbol: String
     var tint: Color = ResultPalette.good
+    var bounces: Bool = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var bounced = false
 
     var body: some View {
         Label(title, systemImage: symbol)
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(tint)
             .lineLimit(1)
+            .symbolEffect(.bounce, options: .nonRepeating, value: bounced)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background(tint.opacity(0.12), in: Capsule())
+            .onAppear {
+                guard bounces, !reduceMotion else { return }
+                bounced = true
+            }
     }
 }
 
@@ -229,19 +239,29 @@ struct Hairline: View {
 private struct RevealModifier: ViewModifier {
     var shown: Bool
     var index: Int
+    var distance: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Staggers cap at 0.09 s per step; with Reduce Motion the stagger and the slide are dropped
+    /// and the view simply fades in.
+    private var animation: Animation {
+        reduceMotion ? .easeOut(duration: 0.2) : Theme.smooth.delay(Double(index) * 0.09)
+    }
 
     func body(content: Content) -> some View {
         content
             .opacity(shown ? 1 : 0)
-            .offset(y: shown ? 0 : 18)
-            .animation(Theme.smooth.delay(Double(index) * 0.09), value: shown)
+            .offset(y: shown || reduceMotion ? 0 : distance)
+            .animation(animation, value: shown)
     }
 }
 
 extension View {
     /// Fades and slides the view up when `shown` flips to true, staggered by `index`.
-    func reveal(_ shown: Bool, index: Int) -> some View {
-        modifier(RevealModifier(shown: shown, index: index))
+    /// `distance` is how far it travels; rows inside a card want less than whole sections.
+    func reveal(_ shown: Bool, index: Int, distance: CGFloat = 18) -> some View {
+        modifier(RevealModifier(shown: shown, index: index, distance: distance))
     }
 }
 

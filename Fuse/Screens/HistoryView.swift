@@ -10,8 +10,12 @@ struct HistoryView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var confirmClear = false
+    @State private var appeared = false
 
     private var store: HistoryStore { HistoryStore.shared }
+
+    /// Rows past the first screen do not wait their turn; they are off screen anyway.
+    private static let staggerCap = 8
 
     var body: some View {
         NavigationStack {
@@ -49,12 +53,13 @@ struct HistoryView: View {
     private var list: some View {
         List {
             Section {
-                ForEach(store.items) { item in
+                ForEach(Array(store.items.enumerated()), id: \.element.id) { index, item in
                     Button {
                         Haptics.tap()
                         onOpen(item)
                     } label: {
                         FuseResultRow(title: item.title, subtitle: item.inputsLine, date: item.createdAt)
+                            .reveal(appeared, index: min(index, Self.staggerCap), distance: 6)
                     }
                     .buttonStyle(.plain)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -77,6 +82,12 @@ struct HistoryView: View {
             }
         }
         .listStyle(.insetGrouped)
+        // Rows removed by swipe or Clear close up with the control spring.
+        .animation(Theme.snappy, value: store.items.map(\.id))
+        .onAppear {
+            guard !appeared else { return }
+            appeared = true
+        }
     }
 
     private var emptyState: some View {

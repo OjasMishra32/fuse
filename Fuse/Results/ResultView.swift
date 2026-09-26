@@ -26,8 +26,9 @@ struct ResultView: View {
     var body: some View {
         GeometryReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                // Three staggered steps: header, artifact, then follow-ups. The width is pinned to
-                // the display so wide artifacts wrap instead of pushing the page sideways.
+                // Four staggered steps: header, artifact, follow-ups, then the toolbar below. The
+                // width is pinned to the display so wide artifacts wrap instead of pushing the
+                // page sideways.
                 VStack(alignment: .leading, spacing: 24) {
                     header
                         .reveal(appeared, index: 0)
@@ -47,7 +48,7 @@ struct ResultView: View {
         }
         .safeAreaInset(edge: .bottom) {
             actions
-                .reveal(appeared, index: 2)
+                .reveal(appeared, index: 3)
         }
         .background { Theme.grouped.ignoresSafeArea() }
         .environment(\.fuseCompact, compact)

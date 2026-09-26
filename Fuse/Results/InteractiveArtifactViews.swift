@@ -36,6 +36,7 @@ struct QuizArtifactView: View {
                         Text(answered == total && total > 0 ? "All answered" : "\(answered) of \(total) answered")
                             .font(.footnote.monospacedDigit())
                             .foregroundStyle(.secondary)
+                            .contentTransition(.numericText())
                         Spacer(minLength: 8)
                         if answered > 0 || revealAll {
                             MiniButton(title: "Reset", symbol: "arrow.counterclockwise") {
@@ -166,6 +167,8 @@ private struct ChoiceRow: View {
             .contentShape(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
         }
         .buttonStyle(.plain)
+        // The fill, the badge and the text colour all settle with the same spring on resolve.
+        .animation(Theme.snappy, value: state)
         .accessibilityLabel(accessibilityText)
     }
 
@@ -177,14 +180,17 @@ private struct ChoiceRow: View {
                 Image(systemName: "checkmark")
                     .font(.footnote.weight(.bold))
                     .foregroundStyle(ResultPalette.good)
+                    .transition(.blurReplace)
             case .wrong:
                 Image(systemName: "xmark")
                     .font(.footnote.weight(.bold))
                     .foregroundStyle(ResultPalette.bad)
+                    .transition(.blurReplace)
             case .neutral, .dimmed:
                 Text(letter)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
+                    .transition(.blurReplace)
             }
         }
         .frame(width: 28, height: 28)
@@ -412,6 +418,7 @@ struct ChecklistArtifactView: View {
                                     .font(.title3)
                                     .foregroundStyle(isDone ? Color.accentColor : Color(uiColor: .tertiaryLabel))
                                     .contentTransition(.symbolEffect(.replace))
+                                    .symbolEffect(.bounce, options: .nonRepeating, value: isDone)
                                     .frame(width: 24)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(InlineMarkdown.attributed(item.text))

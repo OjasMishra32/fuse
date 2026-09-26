@@ -57,7 +57,8 @@ struct EventArtifactView: View {
                 case .adding:
                     WorkingLabel(title: "Adding…")
                 case .added:
-                    StatusPill(title: "Added to Calendar", symbol: "checkmark")
+                    // The button flips to a confirmation whose checkmark bounces once as it lands.
+                    StatusPill(title: "Added to Calendar", symbol: "checkmark", bounces: true)
                         .transition(.scale(scale: 0.9).combined(with: .opacity))
                 case .failed:
                     Button {

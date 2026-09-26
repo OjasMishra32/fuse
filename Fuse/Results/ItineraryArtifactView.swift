@@ -10,6 +10,7 @@ import CoreLocation
 struct ItineraryArtifactView: View {
     let itinerary: Itinerary
     @State private var camera: MapCameraPosition = .automatic
+    @State private var appeared = false
 
     private struct LocatedStop: Identifiable {
         let id: Int           // global stop index
@@ -56,6 +57,10 @@ struct ItineraryArtifactView: View {
             if !itinerary.tips.isEmpty {
                 tips
             }
+        }
+        .onAppear {
+            guard !appeared else { return }
+            appeared = true
         }
     }
 
@@ -141,7 +146,10 @@ struct ItineraryArtifactView: View {
                             .foregroundStyle(.secondary)
                     }
                     ForEach(Array(day.stops.enumerated()), id: \.offset) { index, stop in
-                        StopRow(number: offset + index + 1, stop: stop, isLast: index == day.stops.count - 1)
+                        StopRow(number: offset + index + 1,
+                                stop: stop,
+                                isLast: index == day.stops.count - 1,
+                                shown: appeared)
                     }
                 }
             }
@@ -186,14 +194,24 @@ private struct StopMarker: View {
 }
 
 /// One stop: a 12pt dot on a hairline timeline, then time, name, note and Open in Maps.
+/// The dots light up in stop order once the card is on screen.
 private struct StopRow: View {
     let number: Int
     let stop: Itinerary.Stop
     let isLast: Bool
+    var shown: Bool = true
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var hasCoordinates: Bool {
         guard let lat = stop.latitude, let lon = stop.longitude else { return false }
         return lat.isFinite && lon.isFinite
+    }
+
+    /// The card itself is still fading in for the first quarter second; the dots follow it,
+    /// 0.07 s apart, and stop staggering after a dozen so long trips do not keep waiting.
+    private var dotAnimation: Animation? {
+        reduceMotion ? nil : Theme.snappy.delay(0.25 + 0.07 * Double(min(number - 1, 12)))
     }
 
     var body: some View {
@@ -202,6 +220,9 @@ private struct StopRow: View {
                 Circle()
                     .fill(Color.accentColor)
                     .frame(width: 12, height: 12)
+                    .scaleEffect(shown ? 1 : 0.4)
+                    .opacity(shown ? 1 : 0)
+                    .animation(dotAnimation, value: shown)
                     .padding(.top, 4)
                 if !isLast {
                     Rectangle()

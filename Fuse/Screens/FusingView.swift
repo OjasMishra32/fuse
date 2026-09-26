@@ -11,9 +11,17 @@ struct FusingView: View {
     @Bindable var model: AppModel
     var compact: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
+
+    /// True once the result (or a failure) has landed; the parent fades this screen out and the
+    /// orb settles down with it.
+    private var leaving: Bool { model.phase != .fusing }
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 60)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
+        // With Reduce Motion the glow holds one frame and the timeline only ticks the elapsed time.
+        TimelineView(.animation(minimumInterval: reduceMotion ? 0.1 : 1 / 60)) { timeline in
+            let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
             ZStack {
                 Theme.ink.opacity(compact ? 1 : 0.96)
                     .ignoresSafeArea()
@@ -23,7 +31,10 @@ struct FusingView: View {
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
 
-                    OrbView(size: 132, animated: true, intensity: 1)
+                    OrbView(size: 132, animated: !reduceMotion, intensity: 1)
+                        .scaleEffect(leaving ? 0.9 : 1)
+                        .opacity(leaving ? 0 : 1)
+                        .animation(.easeOut(duration: 0.25), value: leaving)
                         .padding(.bottom, 24)
 
                     Text(headline)
@@ -74,6 +85,10 @@ struct FusingView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .animation(Theme.snappy, value: model.fusingStage)
             }
+        }
+        .onAppear {
+            guard !appeared else { return }
+            appeared = true
         }
     }
 
@@ -134,11 +149,15 @@ struct FusingView: View {
 
     // MARK: Inputs
 
+    /// The two rows settle in one after the other, a beat apart.
     private var inputsCard: some View {
         VStack(spacing: 0) {
             inputRow(model.left)
+                .reveal(appeared, index: 1, distance: 8)
             Divider().padding(.leading, 52)
+                .reveal(appeared, index: 1, distance: 8)
             inputRow(model.right)
+                .reveal(appeared, index: 2, distance: 8)
         }
         .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
     }

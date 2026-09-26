@@ -15,6 +15,8 @@ struct SeamView: View {
     var fold: FoldGeometry
     var size: CGSize
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var pressingCore = false
     @State private var listening = false
     @State private var awaitingTap = false
@@ -61,20 +63,33 @@ struct SeamView: View {
 
     // MARK: Fold invite (after typing an instruction)
 
+    /// A pulse of accent light travelling along the seam. With Reduce Motion it rests at the
+    /// centre as a still glow instead of sweeping.
+    @ViewBuilder
     private var sweep: some View {
-        TimelineView(.animation) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            let phase = (t.truncatingRemainder(dividingBy: 1.6)) / 1.6
-            let length = fold.isVertical ? size.height : size.width
-            let offset = CGFloat(phase) * length - length / 2
+        if reduceMotion {
             Capsule()
                 .fill(Color.accentColor)
                 .frame(width: fold.isVertical ? 3 : 90, height: fold.isVertical ? 90 : 3)
                 .blur(radius: 1.5)
-                .opacity(0.9)
-                .position(x: center.x + (fold.isVertical ? 0 : offset), y: center.y + (fold.isVertical ? offset : 0))
+                .opacity(0.7)
+                .position(center)
+                .allowsHitTesting(false)
+        } else {
+            TimelineView(.animation) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                let phase = (t.truncatingRemainder(dividingBy: 1.6)) / 1.6
+                let length = fold.isVertical ? size.height : size.width
+                let offset = CGFloat(phase) * length - length / 2
+                Capsule()
+                    .fill(Color.accentColor)
+                    .frame(width: fold.isVertical ? 3 : 90, height: fold.isVertical ? 90 : 3)
+                    .blur(radius: 1.5)
+                    .opacity(0.9)
+                    .position(x: center.x + (fold.isVertical ? 0 : offset), y: center.y + (fold.isVertical ? offset : 0))
+            }
+            .allowsHitTesting(false)
         }
-        .allowsHitTesting(false)
     }
 
     private var foldInvite: some View {
@@ -89,11 +104,13 @@ struct SeamView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .contentTransition(.opacity)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 16))
         .frame(maxWidth: 240)
+        .modifier(GentleFloat(distance: 2, period: 2.4))
         .onTapGesture { withAnimation(Theme.snappy) { model.foldPrompt = false } }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
@@ -149,7 +166,10 @@ struct SeamView: View {
                 .fill(.clear)
                 .frame(width: 58, height: 58)
                 .glassEffect(.regular.interactive(), in: .circle)
-            OrbView(size: 48, animated: true, intensity: coreIntensity, speed: 0.8)
+            // Intensity is interpolated here so both halves becoming ready brightens the orb
+            // over 0.6 s; a press brightens with the same spring that scales it.
+            IntensityOrb(size: 48, animated: !reduceMotion, intensity: coreIntensity, speed: 0.8)
+                .animation(pressingCore ? Theme.snappy : .easeInOut(duration: 0.6), value: coreIntensity)
                 .allowsHitTesting(false)
         }
         .scaleEffect(pressingCore ? 0.92 : 1)
@@ -210,10 +230,12 @@ struct SeamView: View {
     @ViewBuilder
     private func intentPill(alignment: Alignment) -> some View {
         Group {
+            // Each branch means something different, so a branch swap blurs through; text that
+            // changes inside a branch (the transcript, a new suggestion) crossfades in place.
             if model.phase == .compose && !model.foldPrompt {
                 if listening {
                     pillLabel(symbol: "waveform", text: SpeechService.shared.transcript.isEmpty ? "Listening…" : SpeechService.shared.transcript, prominent: true)
-                        .transition(.scale(scale: 0.9).combined(with: .opacity))
+                        .transition(.blurReplace)
                 } else if !model.instruction.isEmpty {
                     Menu {
                         Button("Change…", systemImage: "keyboard") { model.showInstructionEditor = true }
@@ -225,7 +247,7 @@ struct SeamView: View {
                     }
                     .menuStyle(.button)
                     .buttonStyle(.plain)
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    .transition(.blurReplace)
                 } else if let top = model.defaultSuggestion {
                     Menu {
                         ForEach(model.suggestions) { s in
@@ -238,10 +260,10 @@ struct SeamView: View {
                     }
                     .menuStyle(.button)
                     .buttonStyle(.plain)
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    .transition(.blurReplace)
                 } else if model.isPreviewing {
                     pillLabel(symbol: "circle.dotted", text: "Reading both screens", prominent: false)
-                        .transition(.opacity)
+                        .transition(.blurReplace)
                 } else if model.readiness > 0 {
                     Button {
                         model.showInstructionEditor = true
@@ -249,13 +271,15 @@ struct SeamView: View {
                         pillLabel(symbol: "keyboard", text: "Fold, or say what to make", prominent: false)
                     }
                     .buttonStyle(.plain)
-                    .transition(.opacity)
+                    .transition(.blurReplace)
                 }
             }
         }
         .frame(maxWidth: 260, alignment: alignment)
         .animation(Theme.snappy, value: model.instruction)
         .animation(Theme.snappy, value: model.defaultSuggestion)
+        .animation(Theme.snappy, value: model.isPreviewing)
+        .animation(Theme.snappy, value: model.readiness)
         .animation(Theme.snappy, value: listening)
     }
 
@@ -263,10 +287,12 @@ struct SeamView: View {
         HStack(spacing: 6) {
             Image(systemName: symbol)
                 .font(.subheadline.weight(.semibold))
+                .contentTransition(.symbolEffect(.replace))
             Text(text)
                 .font(.subheadline.weight(prominent ? .semibold : .regular))
                 .lineLimit(1)
                 .truncationMode(.tail)
+                .contentTransition(.opacity)
         }
         .foregroundStyle(prominent ? Color.accentColor : Color.secondary)
         .padding(.horizontal, 14)
@@ -329,5 +355,48 @@ struct SeamView: View {
                 model.fuse(withSpokenInstruction: text)
             }
         }
+    }
+}
+
+// MARK: - Motion helpers
+
+/// An orb whose `intensity` is animatable, so a change of readiness can be eased over a
+/// chosen duration instead of jumping. Everything else is the plain `OrbView`.
+private struct IntensityOrb: View, Animatable {
+    var size: CGFloat
+    var animated: Bool
+    var intensity: Double
+    var speed: Double
+
+    var animatableData: Double {
+        get { intensity }
+        set { intensity = newValue }
+    }
+
+    var body: some View {
+        OrbView(size: size, animated: animated, intensity: intensity, speed: speed)
+    }
+}
+
+/// A slow vertical drift of a few points, the way a hint hovers. Off with Reduce Motion.
+private struct GentleFloat: ViewModifier {
+    var distance: CGFloat
+    var period: Double
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lifted = false
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: lifted ? -distance : 0)
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: period).repeatForever(autoreverses: true),
+                value: lifted
+            )
+            .onAppear {
+                guard !reduceMotion else { return }
+                lifted = true
+            }
+            .onDisappear { lifted = false }
     }
 }

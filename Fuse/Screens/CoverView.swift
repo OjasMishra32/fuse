@@ -10,13 +10,21 @@ import SwiftUI
 struct CoverView: View {
     @Bindable var model: AppModel
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
+
+    /// Every phase hands over the same way: a fade with a touch of scale, nothing slides.
+    private var phaseTransition: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.98))
+    }
+
     var body: some View {
         ZStack {
             Theme.background
             switch model.phase {
             case .fusing:
                 FusingView(model: model, compact: true)
-                    .transition(.opacity)
+                    .transition(phaseTransition)
             case .result:
                 if let result = model.currentResult {
                     ResultView(
@@ -26,15 +34,21 @@ struct CoverView: View {
                         onDismiss: { model.dismissResult() },
                         onRefuse: { model.refuse() }
                     )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(phaseTransition)
                 }
             case .failed(let message):
                 FailureCard(message: message, compact: true, onRetry: { model.refuse() }, onDismiss: { model.dismissResult() })
+                    .transition(phaseTransition)
             case .compose:
                 idle
+                    .transition(phaseTransition)
             }
         }
         .animation(Theme.smooth, value: model.phase)
+        .onAppear {
+            guard !appeared else { return }
+            appeared = true
+        }
     }
 
     private var idleIntensity: Double {
@@ -64,12 +78,15 @@ struct CoverView: View {
     private var idle: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
-            OrbView(size: 44, animated: true, intensity: idleIntensity, speed: 0.5)
+            OrbView(size: 44, animated: !reduceMotion, intensity: idleIntensity, speed: 0.5)
                 .padding(.bottom, 16)
+            // The title and hint change meaning with readiness, so they blur through.
             Text(idleTitle)
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
+                .id(idleTitle)
+                .transition(.blurReplace)
                 .padding(.bottom, 8)
             Text(idleHint)
                 .font(.subheadline)
@@ -77,7 +94,10 @@ struct CoverView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 300)
+                .id(idleHint)
+                .transition(.blurReplace)
             if model.readiness > 0 {
+                // Slides up 12 pt: on first appearance, and again whenever a screen becomes ready.
                 VStack(spacing: 0) {
                     screenRow(model.left)
                     Divider().padding(.leading, 52)
@@ -86,6 +106,8 @@ struct CoverView: View {
                 .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
                 .frame(maxWidth: 360)
                 .padding(.top, 24)
+                .reveal(appeared, index: 1, distance: 12)
+                .transition(reduceMotion ? .opacity : .offset(y: 12).combined(with: .opacity))
             }
             Spacer(minLength: 0)
             if model.readiness > 0 {
@@ -97,6 +119,8 @@ struct CoverView: View {
                 .buttonStyle(.glassProminent)
                 .buttonBorderShape(.capsule)
                 .padding(.bottom, 16)
+                .reveal(appeared, index: 2, distance: 12)
+                .transition(reduceMotion ? .opacity : .offset(y: 12).combined(with: .opacity))
             }
         }
         .padding(.horizontal, Theme.gutter)
