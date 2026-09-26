@@ -15,16 +15,16 @@ struct PaywallView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Theme.background
+            Theme.grouped.ignoresSafeArea()
             ScrollView {
-                VStack(spacing: 28) {
+                VStack(spacing: 24) {
                     hero
                     benefits
                     planCards
                     callToAction
                     legal
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, Theme.gutter)
                 .padding(.top, 60)
                 .padding(.bottom, 32)
             }
@@ -37,10 +37,9 @@ struct PaywallView: View {
                     onDismiss()
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, Theme.margin)
             .padding(.top, 12)
         }
-        
         .onAppear { ensureSelection() }
         .onChange(of: store.packages.count) { _, _ in ensureSelection() }
     }
@@ -57,7 +56,7 @@ struct PaywallView: View {
                     .font(.fuseTitle)
                     .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
-                Text("Unlimited fuses, image fusion and the community feed — everything the seam can do.")
+                Text("Unlimited fuses, image fusion and the community feed. Everything the seam can do.")
                     .font(.fuseBody)
                     .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
@@ -222,7 +221,7 @@ struct PaywallView: View {
                  : "Demo build: no App Store products are configured, so Continue unlocks Fuse Pro on this device only. Add a RevenueCat key in Settings to sell real subscriptions.")
             Text("Purchases powered by RevenueCat")
         }
-        .font(.system(size: 11))
+        .font(.caption2)
         .foregroundStyle(Theme.textTertiary)
         .multilineTextAlignment(.center)
         .padding(.horizontal, 8)
@@ -375,7 +374,7 @@ private struct PlanCard: View {
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(price)
-                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                        .font(.title3.weight(.bold))
                         .foregroundStyle(Theme.textPrimary)
                     if !period.isEmpty {
                         Text(period)
@@ -384,25 +383,24 @@ private struct PlanCard: View {
                     }
                 }
             }
-            .padding(16)
-            .background(Theme.ink2, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+            .padding(Theme.margin)
+            .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-                    .stroke(selected ? AnyShapeStyle(Theme.energy) : AnyShapeStyle(Theme.line), lineWidth: selected ? 1.5 : 1)
+                    .stroke(selected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Theme.line), lineWidth: selected ? 1.5 : 1)
             )
             .overlay(alignment: .topTrailing) {
                 if let badge {
                     Text(badge.uppercased())
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.caption2.weight(.bold))
                         .tracking(0.6)
-                        .foregroundStyle(.black.opacity(0.85))
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
-                        .background(Theme.energy, in: Capsule())
+                        .background(Color.accentColor, in: Capsule())
                         .offset(x: -12, y: -10)
                 }
             }
-            .shadow(color: selected ? Theme.violet.opacity(0.22) : .clear, radius: 16, y: 6)
         }
         .buttonStyle(.plain)
         .animation(Theme.snappy, value: selected)

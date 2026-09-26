@@ -211,16 +211,16 @@ extension DemoScenario {
                 21. Renewal. This Lease automatically renews for 12 months unless Tenant gives 90 days' written notice.
                 """)),
             right: .init(kind: .notes, preset: .text("""
-                Florida tenant rights, my notes from the UF Student Legal Services handout (Ch. 83, Fla. Stat.)
+                Florida tenant rights, notes from the UF Student Legal Services handout (Ch. 83, Fla. Stat.)
 
-                - Deposit: landlord must keep it in a separate Florida account (no commingling) or post a surety bond, and must tell you which in writing within 30 days. Return within 15 days if no claim, or send an itemized claim by certified mail within 30 days.
-                - Entry: landlord needs reasonable notice, at least 12 hours, at a reasonable time (7:30 a.m. to 8 p.m.) except in emergencies.
-                - Late fees: no statutory cap, but courts strike fees that are penalties rather than a reasonable estimate of loss. $150 plus daily fees on $1,450 rent is likely unenforceable.
-                - Repairs: landlord must keep plumbing, structure, and required appliances working (83.51). Cannot shift habitability repairs to the tenant.
-                - Early termination: landlord has to try to re-rent. Cannot collect all remaining rent and keep the deposit, that is double recovery. A liquidated damages clause is only valid if capped at 2 months and signed as a separate addendum.
-                - Jury waiver and fee waiver: 83.47 voids any clause that waives tenant rights or limits landlord liability. Attorney's fees are mutual by statute (83.48).
+                - Deposit: must sit in a separate Florida account (no commingling) or be bonded, with written notice of which within 30 days. Return within 15 days if no claim, or an itemized claim by certified mail within 30 days.
+                - Entry: reasonable notice, at least 12 hours, between 7:30 a.m. and 8 p.m. except emergencies.
+                - Late fees: no statutory cap, but courts strike penalty fees. $150 plus daily fees on $1,450 rent is likely unenforceable.
+                - Repairs: landlord must keep plumbing, structure, and required appliances working (83.51). Cannot shift these to the tenant.
+                - Early termination: landlord must try to re-rent. Cannot collect all remaining rent and keep the deposit, that is double recovery. Liquidated damages only valid if capped at 2 months and signed as a separate addendum.
+                - Jury and fee waivers: 83.47 voids any clause that waives tenant rights or limits landlord liability. Attorney's fees are mutual (83.48).
                 - Auto renewal: 60 days is the most a landlord can require for non-renewal notice on a yearly lease.
-                - Guests: overnight guest limits are legal but 3 nights a month is unusually strict, ask for 14.
+                - Guests: limits are legal but 3 nights a month is unusually strict, ask for 14.
                 """)),
             instruction: "Checklist of the clauses I should push back on before signing. For each: the clause number, why, and the sentence to ask for instead."
         ),
@@ -236,7 +236,7 @@ extension DemoScenario {
         DemoScenario(
             id: "review-apartments",
             title: "Hidden apartment costs",
-            subtitle: "Listing A + Listing B → true cost table",
+            subtitle: "Listing A + Listing B → cost table",
             symbol: "house",
             left: .init(kind: .notes, preset: .text("""
                 Listing A: The Standard at Gainesville, 1 bed 1 bath, 640 sq ft
@@ -311,9 +311,9 @@ extension DemoScenario {
 
                 Electric cars feel like a product of the last decade, and in a sense they are. The first electric car ever built was General Motors' EV1 in 1996, a two seat coupe that GM leased in California and Arizona and then famously crushed. Nothing like it had existed before, and the idea sat dormant until Tesla revived it.
 
-                The modern era really begins with the Nissan Leaf, which launched in 2016 as the first mass market electric hatchback, and with the Tesla Model 3 a year later. Since then prices have fallen as battery costs dropped, and in 2023 electric cars made up roughly 18% of new car sales worldwide, with China accounting for the majority of them. Norway is the outlier where most new cars sold are already electric.
+                The modern era really begins with the Nissan Leaf, which launched in 2016 as the first mass market electric hatchback, and with the Tesla Model 3 a year later. In 2023 electric cars made up roughly 18% of new car sales worldwide, with China accounting for the majority of them. Norway is the outlier where most new cars sold are already electric.
 
-                Critics still raise the same objections. Range anxiety is real, though a typical new EV now travels well over 200 miles on a charge. Charging is slow compared with a fuel stop, and unlike gas cars, electric cars have no way to recover energy when slowing down, so every stop light is wasted range. Even so, the running costs are lower, the maintenance is simpler, and the tailpipe is gone.
+                Critics still raise the same objections. Range anxiety is real, though a typical new EV now travels well over 200 miles on a charge. Charging is slow compared with a fuel stop, and unlike gas cars, electric cars have no way to recover energy when slowing down, so every stop light is wasted range. Even so, the running costs are lower and the tailpipe is gone.
 
                 The electric car is not a fad. It is the default that the gasoline car briefly interrupted.
                 """)),
@@ -383,16 +383,15 @@ extension DemoScenario {
                 """)),
             right: .init(kind: .document, preset: .text("""
                 Bosch Dishwasher, Use and Care Manual, Section 9: Fault codes and self help
-                Before calling service, work through the checks for your code. Switch the appliance off at the power switch before any manual intervention.
+                Work through the checks for your code before calling service. Switch the appliance off first.
 
                 Code | Meaning | Checks
-                E15 | Water in the base pan, AquaStop tripped | Tilt the appliance 45 degrees to drain the pan. If it recurs, call service.
-                E22 | Filter blocked | Remove and clean the filter system (see 6.2). Check the pump cover is locked.
-                E24 | Appliance does not drain: drain hose blocked or kinked, or water cannot exit | 1. Check that the drain hose is not kinked, trapped, or crushed behind the appliance. 2. Where the hose connects to a waste disposer, confirm the knock-out plug in the disposer inlet has been removed (new disposers ship with the plug in place). 3. Clean the filter (6.2) and the drain pump cover (6.3): remove the cover with the twist lock and check the impeller for foreign objects. 4. Ensure the drain hose high loop is fitted at least 20 inches above the floor. 5. Run the Rinse program to test.
+                E15 | Water in the base pan, AquaStop tripped | Tilt the appliance to drain the pan. If it recurs, call service.
+                E22 | Filter blocked | Clean the filter system (6.2). Check the pump cover is locked.
+                E24 | Appliance does not drain: hose blocked or kinked, or water cannot exit | 1. Check the drain hose is not kinked, trapped, or crushed behind the appliance. 2. Where the hose connects to a waste disposer, confirm the knock-out plug in the disposer inlet has been removed (new disposers ship with the plug in place). 3. Clean the filter (6.2) and the drain pump (6.3): twist off the pump cover and check the impeller for foreign objects. 4. Ensure the drain hose high loop is at least 20 inches above the floor. 5. Run the Rinse program to test.
                 E25 | Drain pump blocked or pump cover loose | Clean the drain pump (6.3), press the cover until it clicks.
                 E09 | Heating element fault | Call service.
-                E01 | Control board fault | Switch off for 5 minutes, then retry. If it recurs, call service.
-                If the code persists after all checks, note the model number (E-Nr) from the door edge and contact Bosch Customer Support.
+                If the code persists after all checks, note the E-Nr from the door edge and contact Bosch Support.
                 """)),
             instruction: "Checklist of what to do tonight, in order, skipping what I already tried. Flag the most likely cause first given the new disposal."
         ),

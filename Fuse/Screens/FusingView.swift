@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - FusingView
 //
 // While the model works. It should feel like the system thinking, not an app loading:
-// a soft breathing orb, the intelligence glow along the bottom edge, a calm title, and the
+// the orb breathing, the intelligence glow along the bottom edge, a calm title, and the
 // two inputs in a grouped card. Renders on the inner display (overlay) and on the cover.
 
 struct FusingView: View {
@@ -21,15 +21,15 @@ struct FusingView: View {
                 VStack(spacing: 0) {
                     Spacer()
 
-                    orb(t: t)
-                        .frame(width: 132, height: 132)
+                    OrbView(size: 132, animated: true, intensity: 1)
                         .padding(.bottom, 30)
 
                     Text(headline)
-                        .font(.system(.title2, design: .default, weight: .semibold))
+                        .font(.title2.weight(.semibold))
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
+                        .minimumScaleFactor(0.85)
                         .frame(maxWidth: 360)
                         .padding(.bottom, 6)
 
@@ -39,7 +39,7 @@ struct FusingView: View {
                         .contentTransition(.opacity)
                         .id(model.fusingStage)
                         .transition(.blurReplace)
-                        .padding(.bottom, 26)
+                        .padding(.bottom, 24)
 
                     inputsCard
                         .frame(maxWidth: 360)
@@ -61,13 +61,13 @@ struct FusingView: View {
                             .font(.footnote.monospacedDigit())
                             .foregroundStyle(.tertiary)
                         Button("Cancel") { model.cancelFuse() }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.glass)
                             .buttonBorderShape(.capsule)
                             .controlSize(.small)
                     }
                     .padding(.bottom, 34)
                 }
-                .padding(.horizontal, 28)
+                .padding(.horizontal, Theme.gutter)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .animation(Theme.snappy, value: model.fusingStage)
             }
@@ -75,12 +75,14 @@ struct FusingView: View {
         }
     }
 
-    /// Says what is being made, in the user's words when they gave any.
+    /// Says what is being made, in the user's words when they gave any. Falls back to the
+    /// kinds, never to raw page titles, which truncate badly.
     private var headline: String {
         let spoken = model.instruction.trimmingCharacters(in: .whitespacesAndNewlines)
         if !spoken.isEmpty { return Self.progressive(spoken) }
         if let s = model.defaultSuggestion { return Self.progressive(s.title) }
-        return "Fusing \(model.left.model.hasContent ? model.left.model.headline : model.left.kind.title) and \(model.right.model.hasContent ? model.right.model.headline : model.right.kind.title)"
+        if model.left.kind == .web && model.right.kind == .web { return "Fusing two pages" }
+        return "Fusing \(model.left.kind.title) and \(model.right.kind.title)"
     }
 
     /// "Merge images" → "Merging images". Falls back to the text itself.
@@ -111,52 +113,13 @@ struct FusingView: View {
         return String(format: "%.1fs", max(0, Date().timeIntervalSince(start)))
     }
 
-    // MARK: Palette (same as the fold)
-
-    private func glow(angle: Double) -> AngularGradient {
-        AngularGradient(
-            colors: [Color(red: 0.25, green: 0.55, blue: 1.0), Color(red: 0.35, green: 0.85, blue: 0.95),
-                     Color(red: 1.0, green: 0.55, blue: 0.75), Color(red: 1.0, green: 0.75, blue: 0.45),
-                     Color(red: 0.25, green: 0.55, blue: 1.0)],
-            center: .center,
-            angle: .degrees(angle)
-        )
-    }
-
-    // MARK: Orb
-
-    private func orb(t: TimeInterval) -> some View {
-        let breathe = 1 + 0.045 * sin(t * 1.6)
-        return ZStack {
-            Circle()
-                .fill(glow(angle: t * 28))
-                .blur(radius: 26)
-                .opacity(0.55)
-                .scaleEffect(1.35 * breathe)
-            Circle()
-                .fill(glow(angle: -t * 40))
-                .blur(radius: 6)
-                .opacity(0.95)
-                .scaleEffect(0.86 * breathe)
-            Circle()
-                .fill(
-                    RadialGradient(colors: [.white.opacity(0.85), .white.opacity(0.0)], center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: 60)
-                )
-                .scaleEffect(0.86 * breathe)
-                .blendMode(.plusLighter)
-            Circle()
-                .strokeBorder(.white.opacity(0.35), lineWidth: 1)
-                .scaleEffect(0.86 * breathe)
-        }
-    }
-
     // MARK: Edge glow (bottom)
 
     private func edgeGlow(t: TimeInterval) -> some View {
         VStack {
             Spacer()
             RoundedRectangle(cornerRadius: 60, style: .continuous)
-                .strokeBorder(glow(angle: t * 35), lineWidth: 26)
+                .strokeBorder(Orb.glow(angle: t * 35), lineWidth: 26)
                 .blur(radius: 30)
                 .frame(height: 260)
                 .opacity(0.5 + 0.15 * sin(t * 2))
@@ -175,7 +138,7 @@ struct FusingView: View {
             Divider().padding(.leading, 52)
             inputRow(model.right)
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
     }
 
     private func inputRow(_ pane: Pane) -> some View {

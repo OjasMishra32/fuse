@@ -4,7 +4,7 @@ import AVFoundation
 // MARK: - SeamView
 //
 // The hinge, made just visible enough. A hairline along the fold and, at its center, the
-// only control in the app:
+// only control in the app, the orb:
 //   • hold the core → fuse without folding
 //   • hold the mic  → say what you want, let go to fuse
 //   • pinch along the seam → squeeze the halves together
@@ -18,10 +18,7 @@ struct SeamView: View {
     @State private var pressingCore = false
     @State private var listening = false
     @State private var awaitingTap = false
-    @State private var pulse = false
-
     private var center: CGPoint { CGPoint(x: fold.frame.midX, y: fold.frame.midY) }
-    private var ready: Double { Double(model.readiness) / 2 }
 
     var body: some View {
         ZStack {
@@ -29,7 +26,6 @@ struct SeamView: View {
             if model.foldPrompt && model.phase == .compose { sweep; foldInvite }
             core
         }
-        .onAppear { pulse = true }
         .onReceive(NotificationCenter.default.publisher(for: .fuseStartListening)) { _ in
             beginListening(fromIntent: true)
         }
@@ -118,16 +114,39 @@ struct SeamView: View {
         .gesture(seamPinch)
     }
 
+    /// Orb brightness: dim with nothing staged, full when both halves are ready or while pressing.
+    private var coreIntensity: Double {
+        if pressingCore { return 1 }
+        switch model.readiness {
+        case 0: return 0.3
+        case 1: return 0.65
+        default: return 1
+        }
+    }
+
     private var coreOrb: some View {
         ZStack {
+            if model.readiness == 2 {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.25))
+                    .frame(width: 58, height: 58)
+                    .blur(radius: 18)
+                    .phaseAnimator([0.95, 1.25]) { view, scale in
+                        view.scaleEffect(scale)
+                    } animation: { _ in
+                        .easeInOut(duration: 2.2)
+                    }
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
             Circle()
                 .fill(.clear)
-                .frame(width: 48, height: 48)
+                .frame(width: 58, height: 58)
                 .glassEffect(.regular.interactive(), in: .circle)
-            FuseMark(progress: pressingCore ? 1 : ready)
-                .frame(width: 22, height: 22)
-                .foregroundStyle(model.readiness == 2 ? Color.accentColor : Color.primary)
+            OrbView(size: 48, animated: true, intensity: coreIntensity, speed: 0.8)
+                .allowsHitTesting(false)
         }
+        .animation(Theme.smooth, value: model.readiness)
         .scaleEffect(pressingCore ? 0.92 : 1)
         .animation(Theme.snappy, value: pressingCore)
         .onLongPressGesture(minimumDuration: 0.55, maximumDistance: 30) {
@@ -291,7 +310,7 @@ struct SeamView: View {
                 return
             }
             if text.isEmpty {
-                model.flash("Didn't catch that — hold and try again")
+                model.flash("Didn't catch that. Hold and try again")
             } else {
                 model.fuse(withSpokenInstruction: text)
             }
@@ -307,29 +326,5 @@ struct AnyPrimitiveButtonStyle: PrimitiveButtonStyle {
     }
     func makeBody(configuration: Configuration) -> some View {
         make(configuration)
-    }
-}
-
-// MARK: - The mark
-
-/// Two rings that overlap more as `progress` → 1.
-struct FuseMark: View {
-    var progress: Double = 0.5
-
-    var body: some View {
-        GeometryReader { geo in
-            let d = geo.size.width * 0.62
-            let gap = geo.size.width * (0.38 - 0.2 * progress)
-            ZStack {
-                Circle().stroke(lineWidth: geo.size.width * 0.085)
-                    .frame(width: d, height: d)
-                    .offset(x: -gap / 2)
-                Circle().stroke(lineWidth: geo.size.width * 0.085)
-                    .frame(width: d, height: d)
-                    .offset(x: gap / 2)
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
-        .animation(Theme.snappy, value: progress)
     }
 }

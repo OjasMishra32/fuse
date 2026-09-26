@@ -203,8 +203,8 @@ private struct RevealModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(shown ? 1 : 0)
-            .offset(y: shown ? 0 : 16)
-            .animation(Theme.smooth.delay(Double(index) * 0.06), value: shown)
+            .offset(y: shown ? 0 : 18)
+            .animation(Theme.smooth.delay(Double(index) * 0.09), value: shown)
     }
 }
 

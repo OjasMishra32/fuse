@@ -35,15 +35,23 @@ struct CoverView: View {
         .animation(Theme.smooth, value: model.phase)
     }
 
+    private var idleIntensity: Double {
+        switch model.readiness {
+        case 0: 0.35
+        case 1: 0.7
+        default: 1
+        }
+    }
+
     private var idle: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
             Spacer()
-            FuseMark(progress: Double(model.readiness) / 2)
-                .frame(width: 44, height: 44)
-                .foregroundStyle(.primary)
+            OrbView(size: 44, animated: true, intensity: idleIntensity, speed: 0.5)
+                .padding(.bottom, 18)
             Text(model.readiness == 0 ? "Nothing to fuse yet" : model.readiness == 1 ? "One screen is ready" : "Ready to fuse")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(.primary)
+                .padding(.bottom, 6)
             Text(model.readiness == 0
                  ? "Open the phone and put something on each screen."
                  : model.readiness == 1 ? "Open to add the other screen, or fuse this one alone."
@@ -58,21 +66,26 @@ struct CoverView: View {
                     Divider().padding(.leading, 52)
                     screenRow(model.right)
                 }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
                 .frame(maxWidth: 360)
-                .padding(.top, 10)
+                .padding(.top, 24)
             }
             Spacer()
             if model.readiness > 0 {
-                EnergyButton(title: "Fuse now", symbol: "circle.hexagongrid.fill") {
+                Button {
                     model.fuse(trigger: .seam)
+                } label: {
+                    Label("Fuse now", systemImage: "circle.hexagongrid.fill").fontWeight(.semibold)
                 }
-                .padding(.bottom, 30)
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
+                .padding(.bottom, 34)
             }
         }
-        .padding(24)
+        .padding(.horizontal, Theme.gutter)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
+        .animation(Theme.smooth, value: model.readiness)
     }
 
     private func screenRow(_ pane: Pane) -> some View {
@@ -139,9 +152,9 @@ struct FailureCard: View {
                 EnergyButton(title: "Try again", symbol: "arrow.clockwise", action: onRetry)
             }
         }
-        .padding(24)
+        .padding(Theme.gutter)
         .frame(maxWidth: 420)
         .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-        .padding(20)
+        .padding(Theme.gutter)
     }
 }

@@ -3,12 +3,15 @@ import UIKit
 
 // MARK: - Result screen
 //
-// The payoff. Quiet header (recipe, the two inputs, title, summary), then the artifact,
-// then follow-ups and actions. Everything fades in, staggered, once.
+// The payoff. Quiet header (orb glyph, the two inputs, title, summary), then the artifact,
+// then follow-ups. Actions live in a glass toolbar pinned to the bottom. Everything fades
+// in, staggered, once.
 
 struct ResultView: View {
     let result: FuseResult
     var compact: Bool = false
+    /// The inner display supplies its own Back button; the cover shows Close in the header.
+    var showsClose: Bool = true
     var onFollowUp: (String) -> Void
     var onDismiss: () -> Void
     var onRefuse: () -> Void
@@ -17,28 +20,34 @@ struct ResultView: View {
     @State private var showShare = false
     @State private var copied = false
 
-    private var gutter: CGFloat { compact ? 20 : 28 }
+    private let gutter: CGFloat = Theme.gutter
 
     var body: some View {
         GeometryReader { proxy in
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: compact ? 18 : 24) {
-                header
-                    .reveal(appeared, index: 0)
-                artifact
-                    .reveal(appeared, index: 1)
-                if !result.followUps.isEmpty {
-                    followUps
-                        .reveal(appeared, index: 2)
+            ScrollView(.vertical, showsIndicators: false) {
+                // Three staggered steps: header, artifact, then follow-ups. The width is pinned to
+                // the display so wide artifacts wrap instead of pushing the page sideways.
+                VStack(alignment: .leading, spacing: compact ? 18 : 24) {
+                    header
+                        .reveal(appeared, index: 0)
+                    artifact
+                        .reveal(appeared, index: 1)
+                    if !result.followUps.isEmpty {
+                        followUps
+                            .reveal(appeared, index: 2)
+                    }
                 }
-                actions
-                    .reveal(appeared, index: 3)
+                .padding(.horizontal, gutter)
+                .padding(.top, compact ? 10 : 14)
+                .padding(.bottom, 24)
+                .frame(width: max(proxy.size.width, 0), alignment: .leading)
+                .clipped()
             }
-            .padding(.horizontal, gutter)
-            .padding(.top, compact ? 10 : 14)
-            .padding(.bottom, 40)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollClipDisabled(false)
         }
+        .safeAreaInset(edge: .bottom) {
+            actions
+                .reveal(appeared, index: 2)
         }
         .background { Theme.grouped.ignoresSafeArea() }
         .environment(\.fuseCompact, compact)
@@ -55,32 +64,40 @@ struct ResultView: View {
 
     // MARK: Header
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 10) {
-                Text(result.title)
-                    .font(compact ? .title.bold() : .largeTitle.bold())
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 8)
-                Button {
-                    Haptics.tap()
-                    onDismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.footnote.weight(.bold))
-                        .frame(width: 30, height: 30)
-                }
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-                .accessibilityLabel("Close")
-            }
+    private var inputsLine: String {
+        result.inputs.isEmpty ? result.recipe.fuseHumanized : result.inputs.map(\.kind.title).joined(separator: " and ")
+    }
 
-            if !result.inputs.isEmpty {
-                Text(result.inputs.map(\.kind.title).joined(separator: " and "))
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Orb glyph, the inputs, and Close, on one quiet line above the title.
+            HStack(spacing: 10) {
+                OrbGlyph(size: 28)
+                Text(inputsLine)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if showsClose {
+                    Button {
+                        Haptics.tap()
+                        onDismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.footnote.weight(.bold))
+                            .frame(width: 30, height: 30)
+                    }
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.circle)
+                    .accessibilityLabel("Close")
+                }
             }
+            .frame(minHeight: 30)
+
+            Text(result.title)
+                .font(compact ? .title.bold() : .largeTitle.bold())
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
 
             if !result.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text(result.summary)
@@ -88,21 +105,7 @@ struct ResultView: View {
                     .foregroundStyle(.primary)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 8)
-            }
-        }
-    }
-
-    private var inputsRow: some View {
-        FlowLayout(spacing: 6, rowSpacing: 6) {
-            ForEach(Array(result.inputs.enumerated()), id: \.offset) { index, input in
-                if index > 0 {
-                    Image(systemName: "plus")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(Theme.textTertiary)
-                        .frame(width: 14, height: 27)
-                }
-                InputChip(input: input)
+                    .padding(.top, 4)
             }
         }
     }
@@ -146,7 +149,7 @@ struct ResultView: View {
             Text("Next")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                .padding(.leading, 16)
+                .padding(.leading, Theme.margin)
             VStack(spacing: 0) {
                 ForEach(Array(result.followUps.enumerated()), id: \.offset) { index, suggestion in
                     if index > 0 { Divider().padding(.leading, 16) }
@@ -171,104 +174,69 @@ struct ResultView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Theme.groupedCard, in: RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
         }
     }
 
-    // MARK: Actions
+    // MARK: Actions (bottom toolbar)
 
+    /// Pinned to the bottom edge as glass buttons; content scrolls beneath it.
     private var actions: some View {
-        HStack(spacing: 10) {
-            Button {
-                Haptics.medium()
-                onRefuse()
-            } label: {
-                Label("Fuse again", systemImage: "arrow.clockwise").fontWeight(.semibold)
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-
-            Button {
-                Haptics.tap()
-                showShare = true
-            } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
-            }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-
-            Button {
-                UIPasteboard.general.string = result.plainText
-                Haptics.soft()
-                withAnimation(Theme.snappy) { copied = true }
-                Task {
-                    try? await Task.sleep(for: .seconds(1.4))
-                    withAnimation(Theme.snappy) { copied = false }
+        GlassEffectContainer(spacing: 10) {
+            HStack(spacing: 10) {
+                Button {
+                    Haptics.medium()
+                    onRefuse()
+                } label: {
+                    Label("Fuse again", systemImage: "arrow.clockwise")
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
                 }
-            } label: {
-                Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
+
+                Button {
+                    Haptics.tap()
+                    showShare = true
+                } label: {
+                    toolbarLabel("Share", symbol: "square.and.arrow.up")
+                }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.capsule)
+                .accessibilityLabel("Share")
+
+                Button {
+                    UIPasteboard.general.string = result.plainText
+                    Haptics.soft()
+                    withAnimation(Theme.snappy) { copied = true }
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.4))
+                        withAnimation(Theme.snappy) { copied = false }
+                    }
+                } label: {
+                    toolbarLabel(copied ? "Copied" : "Copy", symbol: copied ? "checkmark" : "doc.on.doc")
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.capsule)
+                .accessibilityLabel(copied ? "Copied" : "Copy")
             }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
+            .controlSize(.regular)
         }
-        .padding(.top, 6)
+        .padding(.horizontal, gutter)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity)
     }
-}
 
-// MARK: - Header pieces
-
-private struct RecipeCapsule: View {
-    let title: String
-    let symbol: String
-
-    var body: some View {
-        HStack(spacing: 6) {
+    /// Icon only on the narrow cover, icon and title on the inner display.
+    @ViewBuilder
+    private func toolbarLabel(_ title: String, symbol: String) -> some View {
+        if compact {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
-            Text(title)
-                .font(.fuseCaption)
-                .lineLimit(1)
+        } else {
+            Label(title, systemImage: symbol)
         }
-        .foregroundStyle(Theme.violet)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Capsule().fill(Theme.violet.opacity(0.14)))
-        .overlay(Capsule().stroke(Theme.violet.opacity(0.28), lineWidth: 1))
-    }
-}
-
-private struct InputChip: View {
-    let input: InputSummary
-
-    private var detail: String? {
-        let t = input.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty, t.caseInsensitiveCompare(input.kind.title) != .orderedSame else { return nil }
-        return t
-    }
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: input.kind.symbol)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(input.kind.tint)
-            Text(input.kind.title)
-                .font(.fuseCaption)
-                .foregroundStyle(Theme.textPrimary)
-            if let detail {
-                Text("·")
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textTertiary)
-                Text(detail)
-                    .font(.fuseCaption)
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Capsule().fill(.white.opacity(0.06)))
-        .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
     }
 }
 
