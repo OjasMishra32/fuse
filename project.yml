@@ -164,6 +164,12 @@ targets:
     sources:
       - path: FuseSafari/SafariWebExtensionHandler.swift
       - path: Shared
+      - path: Fuse/Engine/FuseEngine.swift
+      - path: Fuse/Engine/OpenAIClient.swift
+      - path: Fuse/Engine/Prompts.swift
+      - path: Fuse/Engine/FuseResult.swift
+      - path: Fuse/Engine/ArtifactText.swift
+      - path: Fuse/App/AppConfig.swift
       - path: FuseSafari/Resources/manifest.json
         buildPhase: resources
       - path: FuseSafari/Resources/background.js

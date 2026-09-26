@@ -76,6 +76,8 @@ enum SharedInbox {
     }
 
     private static let recentsKey = "fuse.recents"
+    /// A FuseResult (JSON) produced outside the app, e.g. by the Safari extension.
+    static let lastBackgroundResultKey = "fuse.lastBackgroundResult"
 
     static func recordVisit(_ visit: Visit) {
         var list = recentVisits().filter { $0.url != visit.url }

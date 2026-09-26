@@ -58,7 +58,18 @@ enum AppConfig {
         }
         let plist = (Bundle.main.object(forInfoDictionaryKey: key.infoPlistKey) as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return plist
+        if !plist.isEmpty { return plist }
+        // Extensions have no keys of their own; the app mirrors its resolved keys into the App Group.
+        return SharedInbox.defaults?.string(forKey: key.defaultsKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    /// Called by the app so the Safari extension can fuse with the same keys.
+    static func syncToGroup() {
+        for key in Key.allCases {
+            let v = value(for: key)
+            if v.isEmpty { SharedInbox.defaults?.removeObject(forKey: key.defaultsKey) }
+            else { SharedInbox.defaults?.set(v, forKey: key.defaultsKey) }
+        }
     }
 
     static func set(_ value: String, for key: Key) {
