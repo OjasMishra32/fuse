@@ -66,7 +66,10 @@ struct RootView: View {
             model.schedulePreview()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { model.importSharedItems() }
+            if phase == .active {
+                model.importSharedItems()
+                model.attachOrb()
+            }
         }
         .onOpenURL { url in
             model.handle(url: url)
@@ -77,6 +80,7 @@ struct RootView: View {
             if let command = bus.take() { model.handle(command) }
             model.importSharedItems()
             model.schedulePreview()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { model.attachOrb() }
         }
     }
 

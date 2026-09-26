@@ -25,6 +25,7 @@
 		2EEFDDEBAF9754CACFFFB76C /* RevenueCatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE62A7AEEFD3C2E05FFFDA7E /* RevenueCatService.swift */; };
 		3703BC5B794260B0FCE97D4B /* ClipboardSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F3A57732F2863C6C5EAB99 /* ClipboardSurface.swift */; };
 		38DDF1A9ED543B3CA100656C /* Surface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 374971D815B08305983A98CB /* Surface.swift */; };
+		3AF80790E8E19717CEAA5D57 /* FloatingOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD65D21A7A605C85BB42F5A /* FloatingOrb.swift */; };
 		42F8BD4F53922E425B35C18E /* MapSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F598AFEFBB1770E6F25448 /* MapSurface.swift */; };
 		47312F131E7AC22CE95156F9 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B785C50FC5581888F169631C /* AppConfig.swift */; };
 		4B8871E447B2A56DD370C0DA /* FuseResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7685485CC1C56D10C1F564 /* FuseResult.swift */; };
@@ -66,6 +67,7 @@
 		B6FB1B7841C1866A222BEE63 /* SharedInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6DFB370968DD1AD9C73C92C /* SharedInbox.swift */; };
 		B86AD548CF057C113968DEB4 /* FuseIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2E639DE608CEFE07CF288A2 /* FuseIntents.swift */; };
 		C369B02FAF2F78653B2E2084 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = 27DE0E2022DDC06282E30B99 /* RevenueCatUI */; };
+		C4F5CBFA0050F78005A2F741 /* AppModel+Orb.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8EE59B158E38FB275B799F /* AppModel+Orb.swift */; };
 		CA0D82ECFAE26D07B3AC4DF0 /* FuseControlIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF5CD0293811FA7222908DF /* FuseControlIntent.swift */; };
 		CA14F4F29919F7C320831B8D /* ArtifactViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C3C886616D0E86495198C9 /* ArtifactViews.swift */; };
 		CC0477A27F9055128814EA18 /* CoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6C5D6C93DA6B50F21B53EB3 /* CoverView.swift */; };
@@ -179,6 +181,7 @@
 		A9EC931C678D545B718CEEAF /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		AAD2B26D5D65846096577449 /* DemoScenarios+More.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DemoScenarios+More.swift"; sourceTree = "<group>"; };
 		AE62A7AEEFD3C2E05FFFDA7E /* RevenueCatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevenueCatService.swift; sourceTree = "<group>"; };
+		AF8EE59B158E38FB275B799F /* AppModel+Orb.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppModel+Orb.swift"; sourceTree = "<group>"; };
 		B4D5D316E946BB752DE028F5 /* FusingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FusingView.swift; sourceTree = "<group>"; };
 		B53EAD078A7835F5A7F313FB /* FuseShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FuseShare.entitlements; sourceTree = "<group>"; };
 		B5BAF08A38315D14D96062E7 /* DemoScenarios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoScenarios.swift; sourceTree = "<group>"; };
@@ -202,6 +205,7 @@
 		D4E80299DC00BD5361E45A18 /* BackgroundFuseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundFuseTests.swift; sourceTree = "<group>"; };
 		D6C7B2E63745BFCEF4088EFF /* NotesSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesSurface.swift; sourceTree = "<group>"; };
 		D8DA481189DE251B57577A67 /* FuseControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuseControls.swift; sourceTree = "<group>"; };
+		DCD65D21A7A605C85BB42F5A /* FloatingOrb.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingOrb.swift; sourceTree = "<group>"; };
 		DD209E558F7487BD279B76CC /* FuseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuseApp.swift; sourceTree = "<group>"; };
 		E191C6A3A7838512464D3B40 /* IntentPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentPreview.swift; sourceTree = "<group>"; };
 		E6C5D6C93DA6B50F21B53EB3 /* CoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverView.swift; sourceTree = "<group>"; };
@@ -317,6 +321,7 @@
 			isa = PBXGroup;
 			children = (
 				5A1B16D96AACD6B36D8F8CF2 /* BackgroundFuseService.swift */,
+				DCD65D21A7A605C85BB42F5A /* FloatingOrb.swift */,
 				F06AA59AFF1FD083BAC71EBA /* FuseJobStore.swift */,
 				7479034F6DF0BD2AFC50953B /* HistoryStore.swift */,
 				37CE0ECFA6E2AA7A24478E11 /* LatestScreenshot.swift */,
@@ -437,6 +442,7 @@
 			children = (
 				B785C50FC5581888F169631C /* AppConfig.swift */,
 				08C7A59163EE5BC4F47AA046 /* AppModel.swift */,
+				AF8EE59B158E38FB275B799F /* AppModel+Orb.swift */,
 				B5BAF08A38315D14D96062E7 /* DemoScenarios.swift */,
 				AAD2B26D5D65846096577449 /* DemoScenarios+More.swift */,
 				DD209E558F7487BD279B76CC /* FuseApp.swift */,
@@ -674,6 +680,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				47312F131E7AC22CE95156F9 /* AppConfig.swift in Sources */,
+				C4F5CBFA0050F78005A2F741 /* AppModel+Orb.swift in Sources */,
 				92E9214CF065FD3E0D5F2B9A /* AppModel.swift in Sources */,
 				CA14F4F29919F7C320831B8D /* ArtifactViews.swift in Sources */,
 				FB752B655A7EF4B780EB1BE8 /* BackgroundFuseService.swift in Sources */,
@@ -685,6 +692,7 @@
 				9A7E6C1C5E4E44D6FE51A609 /* DemoScenarios.swift in Sources */,
 				7415E796553E30E0D3A212EC /* DocumentSurface.swift in Sources */,
 				EDB4EAD82492180D82267C8F /* EventArtifactView.swift in Sources */,
+				3AF80790E8E19717CEAA5D57 /* FloatingOrb.swift in Sources */,
 				5AA9E7A274BDCF3551F5F7FC /* FuseApp.swift in Sources */,
 				A6C11B07BD363863330686E9 /* FuseCommandFlag.swift in Sources */,
 				7B34924A80C0E0F77E413154 /* FuseEngine.swift in Sources */,
