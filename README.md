@@ -31,6 +31,7 @@ Some pairs and what they produce:
 | Job posting | Resume | Cover email that quotes both |
 | Vendor contract clauses | Procurement policy | Redline with reasons |
 | Your calendar | A pin | Day ordered geographically, with leave-by times |
+| A map pin where you're staying (a city you don't know) | A late-night food list with hours | Everything you can still reach and sit down at before it closes, soonest first, with leave-by times and walking directions |
 | Wikipedia article | Blog draft | Contradictions table |
 | Messy notes | Background article | Six-slide pitch |
 | Room photo | Furniture photo | Furniture placed in your room (gpt-image-2) |

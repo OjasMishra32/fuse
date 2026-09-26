@@ -135,6 +135,8 @@ struct ResultView: View {
             GradeArtifactView(report: report)
         case .image(let image):
             ImageArtifactView(image: image)
+        case .openLate(let plan):
+            OpenLateArtifactView(plan: plan)
         }
     }
 
@@ -422,6 +424,9 @@ extension FuseArtifact {
             if !img.prompt.isEmpty { lines.append("Prompt: \(img.prompt)") }
             if lines.isEmpty { lines.append("Generated image") }
             return lines.joined(separator: "\n")
+
+        case .openLate(let plan):
+            return plan.lines.joined(separator: "\n")
         }
     }
 }

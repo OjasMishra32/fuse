@@ -210,6 +210,7 @@ final class MapSurfaceModel: SurfaceModel {
                 var line = "\(i + 1). \(place.name)"
                 if !place.address.isEmpty { line += " — \(place.address)" }
                 if let category = place.category { line += " (\(category))" }
+                line += " @ \(place.coordinateText)"
                 lines.append(line)
             }
         }

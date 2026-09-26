@@ -89,6 +89,10 @@ struct FuseSnippetView: View {
         case .checklist(let list):
             return list.items.prefix(limit).map { "• \($0.text)" }
 
+        case .openLate(let plan):
+            let spots = plan.spots.prefix(limit).map { "\($0.name): closes \($0.closes)" }
+            return spots.isEmpty ? ["Nothing still open you can reach"] : Array(spots)
+
         case .itinerary(let it):
             var out: [String] = []
             for day in it.days {

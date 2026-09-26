@@ -283,6 +283,41 @@ ${S}.fr-next .fr-row-body{font-size:15px}
     box.innerHTML = markdownHTML(md);
   }
 
+  // Places still open: soonest-closing first, then the ones you'd miss.
+  function renderOpenLate(a, out) {
+    const head = [a.origin ? "From " + str(a.origin) : "", a.now ? "at " + str(a.now) : ""].filter(Boolean).join(" ");
+    if (head) add(out, "div", "fr-summary", head);
+    const spots = arr(a.spots || a.places);
+    if (spots.length) {
+      const list = add(out, "div", "fr-list");
+      spots.forEach((s, i) => {
+        const row = add(list, "div", "fr-row");
+        add(row, "div", "fr-time", String(i + 1));
+        const body = add(row, "div", "fr-row-body");
+        add(body, "div", "fr-name", s.name);
+        const meta = [s.category, s.address].map(str).filter(Boolean).join(" · ");
+        if (meta) add(body, "div", "fr-note", meta);
+        const when = [s.closes ? "Closes " + str(s.closes) : "", str(s.travel), s.leave_by ? "leave by " + str(s.leave_by) : ""].filter(Boolean).join(" · ");
+        if (when) add(body, "div", "fr-value", when);
+        if (s.note) add(body, "div", "fr-note", s.note);
+      });
+    } else {
+      add(out, "div", "fr-card", "Nothing you can reach tonight is still open.");
+    }
+    const missed = arr(a.missed);
+    if (missed.length) {
+      add(out, "div", "fr-section", "Too late tonight");
+      const list = add(out, "div", "fr-list");
+      missed.forEach((m) => {
+        const row = add(list, "div", "fr-row");
+        const body = add(row, "div", "fr-row-body");
+        add(body, "div", "fr-value", m.name);
+        if (m.reason) add(body, "div", "fr-note", m.reason);
+      });
+    }
+    if (a.tip) add(out, "div", "fr-photo-hint", a.tip);
+  }
+
   // A fused photo: the preview the extension sent (the full-size photo waits in the app).
   function renderImage(r, a, out) {
     const src = r.image || "";
@@ -310,6 +345,7 @@ ${S}.fr-next .fr-row-body{font-size:15px}
         case "diff": return renderDiff(a, out);
         case "grade": return renderGrade(a, out);
         case "image": return renderImage(r, a, out);
+        case "open_late": return renderOpenLate(a, out);
         case "markdown": if (a.markdown) return renderMarkdown(a.markdown, out); break;
       }
     } catch (e) { /* fall through to plain text */ }
