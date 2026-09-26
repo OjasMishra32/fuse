@@ -34,9 +34,11 @@ struct DemoScenario: Identifiable {
         var id: String { title }
     }
 
-    /// Grouped by the relationship between the two screens.
+    /// Grouped by the relationship between the two screens. "Live demo" comes first: it is the
+    /// six the presenter runs on stage (DemoScenarios+Live.swift) and the home screen's Demos row.
     static var sections: [Section] {
         [
+            Section(title: "Live demo", scenarios: live),
             Section(title: "Featured", scenarios: core + more),
             Section(title: "Places and plans", scenarios: places),
             Section(title: "Time and commitments", scenarios: time),
@@ -157,7 +159,8 @@ private extension DemoScenario.Input {
 
 // MARK: - Scenario text
 
-private enum DemoText {
+/// Shared with DemoScenarios+Live.swift, which reuses the week and grade content verbatim.
+enum DemoText {
 
     static let conferenceEmail = """
     From: Swiftsonic Team <hello@swiftsonic.dev>

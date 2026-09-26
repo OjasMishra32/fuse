@@ -32,6 +32,7 @@
 		3AF80790E8E19717CEAA5D57 /* FloatingOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD65D21A7A605C85BB42F5A /* FloatingOrb.swift */; };
 		41F8F462D42FFA8E6C588C61 /* JobApplicationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D7B3345A78D5FB216ADB0B /* JobApplicationSession.swift */; };
 		42F8BD4F53922E425B35C18E /* MapSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F598AFEFBB1770E6F25448 /* MapSurface.swift */; };
+		42FB3837605ECFBFC865193A /* DemoScenarios+Live.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30960426E5F0ED43E997AC3 /* DemoScenarios+Live.swift */; };
 		47312F131E7AC22CE95156F9 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B785C50FC5581888F169631C /* AppConfig.swift */; };
 		4B8871E447B2A56DD370C0DA /* FuseResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7685485CC1C56D10C1F564 /* FuseResult.swift */; };
 		4C0F631C596535F5C162FF2A /* AppModel+JobApplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D13587F79FF9C0E0667925E /* AppModel+JobApplication.swift */; };
@@ -230,6 +231,7 @@
 		BFE3747A718D29D4E127EAA4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C187F5F3FE7B8DBD55A82C0E /* background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = background.js; sourceTree = "<group>"; };
 		C22AD612049EF0B8B011D72B /* DocumentSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSurface.swift; sourceTree = "<group>"; };
+		C30960426E5F0ED43E997AC3 /* DemoScenarios+Live.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DemoScenarios+Live.swift"; sourceTree = "<group>"; };
 		C492510AA51622F8C19BA216 /* Fuse.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Fuse.xcconfig; sourceTree = "<group>"; };
 		C4D7B3345A78D5FB216ADB0B /* JobApplicationSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobApplicationSession.swift; sourceTree = "<group>"; };
 		C98B8BC832C92042C6647E0D /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
@@ -498,6 +500,7 @@
 				08C7A59163EE5BC4F47AA046 /* AppModel.swift */,
 				AF8EE59B158E38FB275B799F /* AppModel+Orb.swift */,
 				B5BAF08A38315D14D96062E7 /* DemoScenarios.swift */,
+				C30960426E5F0ED43E997AC3 /* DemoScenarios+Live.swift */,
 				EFA91D9557A83B506BDA68EB /* DemoScenarios+Make.swift */,
 				AAD2B26D5D65846096577449 /* DemoScenarios+More.swift */,
 				A9D7DFD50AE262A12EE964D4 /* DemoScenarios+Places.swift */,
@@ -767,6 +770,7 @@
 				3703BC5B794260B0FCE97D4B /* ClipboardSurface.swift in Sources */,
 				9B857D52D002C004C56B2126 /* CommunityView.swift in Sources */,
 				CC0477A27F9055128814EA18 /* CoverView.swift in Sources */,
+				42FB3837605ECFBFC865193A /* DemoScenarios+Live.swift in Sources */,
 				B7764F152CE1DCC4A93A2FD1 /* DemoScenarios+Make.swift in Sources */,
 				0F1FEE97B4BB0E51D492DC1C /* DemoScenarios+More.swift in Sources */,
 				6568968A73EB85E500BAB1E6 /* DemoScenarios+Places.swift in Sources */,

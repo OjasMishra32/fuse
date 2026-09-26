@@ -92,6 +92,10 @@ struct StageView: View {
 /// One half of the phone. Either the home screen (a grid of apps) or one app, full bleed,
 /// with an iOS-style home indicator to go back. The indicator is a bottom safe-area inset,
 /// so each surface's own chrome clears it while its content may run underneath.
+///
+/// Opening an app moves like an iOS app launch: the surface scales in from 0.92 while the
+/// home screen zooms past to 1.08. Going home is the reverse: the surface drifts out to 1.04
+/// and the home screen settles back in from 1.08.
 struct HalfView: View {
     let pane: Pane
     @Bindable var model: AppModel
@@ -100,13 +104,15 @@ struct HalfView: View {
         ZStack {
             if pane.isHome {
                 HomeScreen(pane: pane, model: model)
-                    .transition(.asymmetric(insertion: .opacity, removal: .scale(scale: 1.08).combined(with: .opacity)))
+                    .transition(.scale(scale: 1.08).combined(with: .opacity))
             } else {
                 SurfaceRegistry.view(for: pane.model)
                     .id(pane.kind)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .safeAreaInset(edge: .bottom, spacing: 0) { homeIndicator }
-                    .transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity), removal: .opacity))
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.92).combined(with: .opacity),
+                        removal: .scale(scale: 1.04).combined(with: .opacity)))
             }
         }
         .background(Theme.ink.ignoresSafeArea())
@@ -170,6 +176,13 @@ struct HomeScreen: View {
             wallpaper
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
+                    // Only the left half carries the Demos row so the two home screens don't
+                    // repeat it; the right half is the grid alone.
+                    if pane.side == .left {
+                        demosRow
+                            .popIn(popped, index: 0)
+                    }
+
                     LazyVGrid(columns: columns, spacing: 24) {
                         ForEach(Array(SurfaceRegistry.dockOrder.enumerated()), id: \.element) { index, kind in
                             appButton(kind)
@@ -224,6 +237,46 @@ struct HomeScreen: View {
         .accessibilityElement(children: .combine)
     }
 
+    // MARK: Demos row (left half only)
+
+    /// The six live-demo scenarios as a horizontally scrolling row of cards, so a presenter can
+    /// seed both halves with one tap and never needs a Mac. "See all" opens the Scenarios sheet.
+    private var demosRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Demos")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    Haptics.tap()
+                    model.showScenarios = true
+                } label: {
+                    Text("See all")
+                        .font(.footnote)
+                        .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens all scenarios")
+            }
+            .padding(.horizontal, 4)
+
+            // The row bleeds to the edges of the half while its first card lines up with the grid.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(DemoScenario.live) { scenario in
+                        DemoCard(scenario: scenario) { model.apply(scenario) }
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, Theme.margin)
+            }
+            .padding(.horizontal, -Theme.margin)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Demos")
+    }
+
     private func appButton(_ kind: SurfaceKind) -> some View {
         let surface = pane.model(for: kind)
         return Button {
@@ -267,6 +320,55 @@ struct HomeScreen: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
+    }
+}
+
+// MARK: - Demo card (home screen row)
+
+/// One live-demo scenario as a card: accent icon tile, title, subtitle. 140 wide; 96 tall
+/// with a one-line title, and every card in the row grows together when a title wraps.
+private struct DemoCard: View {
+    let scenario: DemoScenario
+    let action: () -> Void
+
+    private let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 0) {
+                IconTile(symbol: scenario.symbol, tint: .accentColor, size: 28)
+                Spacer(minLength: 6)
+                Text(scenario.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                Text(scenario.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .padding(.top, 2)
+            }
+            .padding(12)
+            .frame(width: 140, alignment: .topLeading)
+            .frame(minHeight: 96, maxHeight: .infinity, alignment: .topLeading)
+            .background(Theme.groupedCard, in: shape)
+            .overlay(shape.strokeBorder(Theme.line, lineWidth: 0.5))
+            .contentShape(shape)
+        }
+        .buttonStyle(DemoCardStyle())
+        .accessibilityLabel(scenario.title)
+        .accessibilityHint(scenario.subtitle)
+    }
+}
+
+/// Press-down scale to 0.96 with a light tap, like pressing a home-screen widget.
+private struct DemoCardStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(Theme.snappy, value: configuration.isPressed)
+            .sensoryFeedback(.impact(weight: .light), trigger: configuration.isPressed) { _, pressed in pressed }
     }
 }
 
