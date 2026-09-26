@@ -28,6 +28,17 @@ final class AppModel {
     let left = Pane(side: .left, kind: .web)
     let right = Pane(side: .right, kind: .maps)
 
+    // Job applications are an isolated use case; other team recipes keep their existing route.
+    var jobApplication = JobApplicationSession()
+    var jobDemoActive = false
+    var jobPreviewCover = false
+    var jobForceInnerPreview = false
+    var jobSceneActive = false
+    var jobWorkspaceVisible = false
+    var jobCaptureInProgress = false
+    var jobFoldGate = JobApplicationFoldGate()
+    var jobCaptureTask: Task<Void, Never>?
+
     // Hinge
     var hinge: DeviceHinge?
     var hingeAvailable: Bool { hinge != nil }
@@ -89,6 +100,10 @@ final class AppModel {
     // MARK: Intent preview
 
     func schedulePreview() {
+        if jobDemoActive {
+            previewTask?.cancel(); suggestions = []; isPreviewing = false
+            return
+        }
         let key = contentKey
         guard key != lastPreviewKey else { return }
         lastPreviewKey = key
@@ -138,6 +153,13 @@ final class AppModel {
         hinge = new.hinge
         guard let h = new.hinge else { return }
         let deg = h.angle.degrees
+        if jobDemoActive {
+            if jobFoldGate.observe(closed: h.status == .closed, open: h.status == .fullyOpen || deg > 120,
+                                   eligible: jobCanCombine) {
+                startJobApplication(trigger: .fold)
+            }
+            return
+        }
 
         if debugFold == nil {
             // Start melting once the user commits to a fold, finish just before closed.
@@ -193,6 +215,7 @@ final class AppModel {
     }
 
     func fuse(trigger: FuseTrigger) {
+        if jobDemoActive { startJobApplication(trigger: trigger); return }
         guard phase != .fusing else { return }
         lastTrigger = trigger
         guard isReady else {
@@ -318,6 +341,18 @@ final class AppModel {
     // MARK: Demo scenarios
 
     func apply(_ scenario: DemoScenario) {
+        guard !jobApplication.isBusy, !jobCaptureInProgress else { return }
+        jobDemoActive = scenario.id == "job-application"
+        if jobDemoActive {
+            fuseTask?.cancel(); previewTask?.cancel()
+            FloatingOrb.shared.dismiss()
+            if case .failed = jobApplication.phase, !jobApplication.canRetry { jobApplication.reset() }
+            jobPreviewCover = false; jobForceInnerPreview = false
+            jobFoldGate = JobApplicationFoldGate()
+            // The workspace is already visible and observed open when switching recipes.
+            if hinge?.status == .fullyOpen { _ = jobFoldGate.observe(closed: false, open: true, eligible: false) }
+        }
+
         dismissResult()
         left.apply(scenario.left.preset, as: scenario.left.kind)
         right.apply(scenario.right.preset, as: scenario.right.kind)
@@ -335,6 +370,7 @@ final class AppModel {
     /// not start a second one from the Photos fallback.
     @discardableResult
     func importSharedItems() -> Bool {
+        guard !jobDemoActive else { return false }
         AppConfig.syncToGroup()
         if let data = SharedInbox.defaults?.data(forKey: SharedInbox.lastBackgroundResultKey) {
             SharedInbox.defaults?.removeObject(forKey: SharedInbox.lastBackgroundResultKey)
@@ -488,7 +524,7 @@ final class AppModel {
     /// fuse://stage?side=left&text=…                   (a note)
     /// fuse://fuse   fuse://home   fuse://screenshot   fuse://inbox
     func handle(url: URL) {
-        importSharedItems()
+        if url.host != "demo" { importSharedItems() }
         let host = url.host ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         func value(_ name: String) -> String? { q.first { $0.name == name }?.value }
@@ -511,6 +547,8 @@ final class AppModel {
         case "fuse":
             fuse(trigger: .intent)
         case "home":
+            guard !jobApplication.isBusy else { return }
+            jobDemoActive = false
             left.goHome(); right.goHome()
         case "screenshot":
             Task { await fuseLatestScreenshot() }

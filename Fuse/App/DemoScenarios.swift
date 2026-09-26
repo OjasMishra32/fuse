@@ -26,9 +26,35 @@ struct DemoScenario: Identifiable {
     let right: Input
     let instruction: String?
 
-    static var all: [DemoScenario] { core + more }
+    static var all: [DemoScenario] { sections.flatMap(\.scenarios) }
+
+    struct Section: Identifiable {
+        let title: String
+        let scenarios: [DemoScenario]
+        var id: String { title }
+    }
+
+    /// Grouped by the relationship between the two screens.
+    static var sections: [Section] {
+        [
+            Section(title: "Featured", scenarios: core + more),
+            Section(title: "Places and plans", scenarios: places),
+            Section(title: "Time and commitments", scenarios: time),
+            Section(title: "Review and compare", scenarios: review),
+            Section(title: "Make and create", scenarios: make),
+        ]
+    }
 
     static let core: [DemoScenario] = [
+        DemoScenario(
+            id: "job-application",
+            title: "Apply with a fold",
+            subtitle: "Job + résumé → demo application receipt",
+            symbol: "briefcase.fill",
+            left: .init(kind: .web, preset: .url(JobApplicationDemo.jobURL)),
+            right: .notes(JobApplicationDemo.resume),
+            instruction: "Tailor this fictional résumé to Bright Labs and submit to the demo employer inbox."
+        ),
         DemoScenario(
             id: "theme-park",
             title: "Theme park, one day",

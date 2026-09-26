@@ -59,17 +59,27 @@ struct SurfaceSnapshot {
     var image: UIImage?
     /// Structured facts the model can rely on (url, latitude, longitude, dates, page count…).
     var metadata: [String: String]
+    /// The main photo on this screen (a page's og:image, the photo itself…). Used for image fusion
+    /// so the image model works from the actual picture, not a screenshot of it.
+    var heroImage: UIImage? = nil
 
-    init(kind: SurfaceKind, title: String, text: String = "", image: UIImage? = nil, metadata: [String: String] = [:]) {
+    init(kind: SurfaceKind, title: String, text: String = "", image: UIImage? = nil, metadata: [String: String] = [:], heroImage: UIImage? = nil) {
         self.kind = kind
         self.title = title
         self.text = text
         self.image = image
         self.metadata = metadata
+        self.heroImage = heroImage
     }
 
     var isEmpty: Bool {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && image == nil && metadata.isEmpty
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && image == nil && heroImage == nil && metadata.isEmpty
+    }
+
+    /// The same selection drives both binary uploads and prompt reference numbering.
+    /// Web edits use extracted photos, avoiding browser chrome in the rendered result.
+    var imageEditReference: UIImage? {
+        heroImage ?? (kind == .web ? nil : image)
     }
 
     static func empty(_ kind: SurfaceKind) -> SurfaceSnapshot {

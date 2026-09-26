@@ -16,7 +16,9 @@ struct RootView: View {
         ZStack {
             Theme.background
 
-            if model.isClosed {
+            if model.jobDemoActive {
+                JobApplicationWorkspaceView(model: model)
+            } else if model.isClosed {
                 CoverView(model: model)
             } else {
                 mainStage
@@ -66,21 +68,25 @@ struct RootView: View {
             model.schedulePreview()
         }
         .onChange(of: scenePhase) { _, phase in
+            model.jobSceneActive = phase == .active
             if phase == .active {
                 model.importSharedItems()
-                model.attachOrb()
+                if !model.jobDemoActive { model.attachOrb() }
             }
         }
         .onOpenURL { url in
             model.handle(url: url)
         }
+        .onDisappear { model.jobWorkspaceVisible = false }
         .onAppear {
+            model.jobWorkspaceVisible = true
+            model.jobSceneActive = scenePhase == .active
             RevenueCatService.shared.configure()
             Task { await SupabaseService.shared.ensureSession() }
             if let command = bus.take() { model.handle(command) }
             model.importSharedItems()
             model.schedulePreview()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { model.attachOrb() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { if !model.jobDemoActive { model.attachOrb() } }
         }
     }
 
@@ -263,26 +269,26 @@ struct ScenariosSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    ForEach(DemoScenario.all) { scenario in
-                        Button {
-                            dismiss()
-                            model.apply(scenario)
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: scenario.symbol)
-                                    .font(.body.weight(.medium))
-                                    .foregroundStyle(Color.accentColor)
-                                    .frame(width: 28)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(scenario.title).foregroundStyle(.primary)
-                                    Text(scenario.subtitle).font(.footnote).foregroundStyle(.secondary)
+                ForEach(DemoScenario.sections) { section in
+                    Section(section.title) {
+                        ForEach(section.scenarios) { scenario in
+                            Button {
+                                dismiss()
+                                model.apply(scenario)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: scenario.symbol)
+                                        .font(.body.weight(.medium))
+                                        .foregroundStyle(Color.accentColor)
+                                        .frame(width: 28)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(scenario.title).foregroundStyle(.primary)
+                                        Text(scenario.subtitle).font(.footnote).foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                         }
                     }
-                } footer: {
-                    Text("Each scenario opens an app on each half of the phone. Then fold.")
                 }
                 Section {
                     Button(role: .destructive) {
@@ -297,6 +303,6 @@ struct ScenariosSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
     }
 }

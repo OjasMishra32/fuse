@@ -25,17 +25,20 @@ struct FusingView: View {
                         .frame(width: 132, height: 132)
                         .padding(.bottom, 30)
 
-                    Text(model.fusingStage)
+                    Text(headline)
                         .font(.system(.title2, design: .default, weight: .semibold))
                         .foregroundStyle(.primary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .frame(maxWidth: 360)
+                        .padding(.bottom, 6)
+
+                    Text(model.fusingStage)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                         .contentTransition(.opacity)
                         .id(model.fusingStage)
                         .transition(.blurReplace)
-                        .padding(.bottom, 6)
-
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
                         .padding(.bottom, 26)
 
                     inputsCard
@@ -72,8 +75,35 @@ struct FusingView: View {
         }
     }
 
-    private var subtitle: String {
-        "Fusing \(model.left.kind.title) and \(model.right.kind.title)"
+    /// Says what is being made, in the user's words when they gave any.
+    private var headline: String {
+        let spoken = model.instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !spoken.isEmpty { return Self.progressive(spoken) }
+        if let s = model.defaultSuggestion { return Self.progressive(s.title) }
+        return "Fusing \(model.left.model.hasContent ? model.left.model.headline : model.left.kind.title) and \(model.right.model.hasContent ? model.right.model.headline : model.right.kind.title)"
+    }
+
+    /// "Merge images" → "Merging images". Falls back to the text itself.
+    static func progressive(_ text: String) -> String {
+        var words = text.split(separator: " ").map(String.init)
+        guard let first = words.first?.lowercased() else { return text }
+        let map: [String: String] = [
+            "merge": "Merging", "compare": "Comparing", "plan": "Planning", "make": "Making", "write": "Writing",
+            "find": "Finding", "add": "Adding", "create": "Creating", "draft": "Drafting", "grade": "Grading",
+            "build": "Building", "summarize": "Summarizing", "put": "Putting", "fix": "Fixing", "reply": "Replying",
+            "repaint": "Repainting", "recap": "Recapping", "order": "Ordering", "explain": "Explaining", "turn": "Turning",
+            "combine": "Combining", "generate": "Generating", "prepare": "Preparing", "check": "Checking", "list": "Listing",
+            "rewrite": "Rewriting", "translate": "Translating", "schedule": "Scheduling", "book": "Booking", "split": "Splitting",
+            "save": "Saving", "review": "Reviewing", "match": "Matching", "route": "Routing", "quiz": "Quizzing", "shorten": "Shortening"
+        ]
+        if let ing = map[first] {
+            words[0] = ing
+        } else {
+            words[0] = first.prefix(1).uppercased() + first.dropFirst()
+        }
+        var out = words.joined(separator: " ")
+        if out.hasSuffix(".") { out.removeLast() }
+        return out.count > 64 ? String(out.prefix(61)) + "…" : out
     }
 
     private func elapsed() -> String {

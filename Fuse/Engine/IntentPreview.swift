@@ -75,9 +75,9 @@ struct IntentPreviewer {
         // Small visual references keep the preview cheap; the edit uses larger originals.
         var parts: [OpenAIClient.Part] = [.text(Prompts.userPreamble(instruction: nil))]
         parts.append(.text(Prompts.describe(l, side: "left")))
-        if let image = left.image { parts.append(.image(image.fuseDownscaled(maxEdge: 512))) }
+        if let image = left.heroImage ?? left.image { parts.append(.image(image.fuseDownscaled(maxEdge: 512))) }
         parts.append(.text(Prompts.describe(r, side: "right")))
-        if let image = right.image { parts.append(.image(image.fuseDownscaled(maxEdge: 512))) }
+        if let image = right.heroImage ?? right.image { parts.append(.image(image.fuseDownscaled(maxEdge: 512))) }
         parts.append(.text("Respond with the JSON object only."))
         let raw = try await client.chatJSON(system: Self.system, parts: parts)
         return Self.decode(raw)

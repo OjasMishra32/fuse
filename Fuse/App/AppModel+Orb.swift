@@ -37,6 +37,7 @@ extension AppModel {
 
     /// Fuse the last two pages from Safari without bringing Fuse to the front.
     func fuseFromOrb() {
+        guard !jobDemoActive else { return }
         let orb = FloatingOrb.shared
         guard phase != .fusing else { return }
         let visits = SharedInbox.recentVisits().filter { Date().timeIntervalSince($0.at) < 45 * 60 }
