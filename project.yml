@@ -1,0 +1,90 @@
+name: Fuse
+options:
+  bundleIdPrefix: com.ojasvamishra
+  deploymentTarget:
+    iOS: "27.1"
+  xcodeVersion: "27.1"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  generateEmptyDirectories: true
+configs:
+  Debug: debug
+  Release: release
+packages:
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios-spm.git
+    from: 5.0.0
+  Supabase:
+    url: https://github.com/supabase/supabase-swift.git
+    from: 2.0.0
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    IPHONEOS_DEPLOYMENT_TARGET: "27.1"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+    SWIFT_EMIT_LOC_STRINGS: "YES"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Fuse:
+    type: application
+    platform: iOS
+    sources:
+      - path: Fuse
+        excludes:
+          - "**/.DS_Store"
+    dependencies:
+      - package: RevenueCat
+        product: RevenueCat
+      - package: RevenueCat
+        product: RevenueCatUI
+      - package: Supabase
+        product: Supabase
+    configFiles:
+      Debug: Config/Fuse.xcconfig
+      Release: Config/Fuse.xcconfig
+    info:
+      path: Fuse/Info.plist
+      properties:
+        CFBundleDisplayName: Fuse
+        CFBundleName: Fuse
+        UILaunchScreen: {}
+        UIRequiresFullScreen: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortraitUpsideDown
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortraitUpsideDown
+        UIUserInterfaceStyle: Dark
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: Fuse uses the camera so you can fuse what you see with what's on the other screen.
+        NSPhotoLibraryUsageDescription: Fuse reads photos you pick so it can fuse them with the other screen.
+        NSPhotoLibraryAddUsageDescription: Fuse saves images you fuse to your photo library when you ask.
+        NSMicrophoneUsageDescription: Fuse listens while you hold the seam so you can say what to fuse.
+        NSSpeechRecognitionUsageDescription: Fuse turns your voice into an instruction for the fuse.
+        NSCalendarsFullAccessUsageDescription: Fuse reads your calendar so it can fuse events with the other screen, and adds events you approve.
+        NSCalendarsWriteOnlyAccessUsageDescription: Fuse adds calendar events you approve.
+        NSLocationWhenInUseUsageDescription: Fuse centers the map on you.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+          NSAllowsArbitraryLoadsInWebContent: true
+        OPENAI_API_KEY: $(OPENAI_API_KEY)
+        OPENAI_MODEL: $(OPENAI_MODEL)
+        SUPABASE_PROJECT_REF: $(SUPABASE_PROJECT_REF)
+        SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
+        REVENUECAT_API_KEY: $(REVENUECAT_API_KEY)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ojasvamishra.fuse
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: "YES"
+        SWIFT_OBJC_BRIDGING_HEADER: ""

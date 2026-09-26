@@ -1,0 +1,14 @@
+// Fuse build configuration.
+// Put real keys in Config/Secrets.local.xcconfig (git-ignored) — it overrides everything below.
+// You can also paste keys at runtime in the app: Settings (gear) → Keys.
+//
+// NOTE: xcconfig treats "//" as a comment, so we store only the Supabase *project ref*
+// (the "abcdefgh" in https://abcdefgh.supabase.co) and build the URL in code.
+
+OPENAI_API_KEY =
+OPENAI_MODEL = gpt-6-sol
+SUPABASE_PROJECT_REF =
+SUPABASE_ANON_KEY =
+REVENUECAT_API_KEY =
+
+#include? "Secrets.local.xcconfig"
