@@ -263,26 +263,26 @@ struct ScenariosSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    ForEach(DemoScenario.all) { scenario in
-                        Button {
-                            dismiss()
-                            model.apply(scenario)
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: scenario.symbol)
-                                    .font(.body.weight(.medium))
-                                    .foregroundStyle(Color.accentColor)
-                                    .frame(width: 28)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(scenario.title).foregroundStyle(.primary)
-                                    Text(scenario.subtitle).font(.footnote).foregroundStyle(.secondary)
+                ForEach(DemoScenario.sections) { section in
+                    Section(section.title) {
+                        ForEach(section.scenarios) { scenario in
+                            Button {
+                                dismiss()
+                                model.apply(scenario)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: scenario.symbol)
+                                        .font(.body.weight(.medium))
+                                        .foregroundStyle(Color.accentColor)
+                                        .frame(width: 28)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(scenario.title).foregroundStyle(.primary)
+                                        Text(scenario.subtitle).font(.footnote).foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                         }
                     }
-                } footer: {
-                    Text("Each scenario opens an app on each half of the phone. Then fold.")
                 }
                 Section {
                     Button(role: .destructive) {
@@ -297,6 +297,6 @@ struct ScenariosSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
     }
 }

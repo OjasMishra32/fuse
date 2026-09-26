@@ -69,25 +69,27 @@ struct SeamView: View {
     }
 
     private var foldInvite: some View {
-        VStack(spacing: 6) {
-            Image(systemName: fold.isVertical ? "arrow.right.and.line.vertical.and.arrow.left" : "arrow.down.and.line.horizontal.and.arrow.up")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-                .symbolEffect(.pulse, options: .repeating)
-            Text("Fold to fuse")
-                .font(.headline)
-                .foregroundStyle(.primary)
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: fold.isVertical ? "arrow.right.and.line.vertical.and.arrow.left" : "arrow.down.and.line.horizontal.and.arrow.up")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .symbolEffect(.pulse, options: .repeating)
+                Text("Fold to fuse")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+            }
             Text(model.instruction)
-                .font(.footnote)
+                .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 220)
+                .lineLimit(1)
+                .frame(maxWidth: 200)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .position(x: center.x, y: center.y - 150)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .fixedSize()
+        .position(x: center.x, y: center.y - 92)
         .transition(.scale(scale: 0.9).combined(with: .opacity))
         .onTapGesture { withAnimation(Theme.snappy) { model.foldPrompt = false } }
     }
@@ -178,7 +180,7 @@ struct SeamView: View {
 
     @ViewBuilder
     private var intentPill: some View {
-        if model.phase == .compose {
+        if model.phase == .compose && !model.foldPrompt {
             if listening {
                 pillLabel(symbol: "waveform", text: SpeechService.shared.transcript.isEmpty ? "Listening…" : SpeechService.shared.transcript, prominent: true)
                     .transition(.scale(scale: 0.9).combined(with: .opacity))

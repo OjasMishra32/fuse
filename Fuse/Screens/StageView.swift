@@ -56,14 +56,14 @@ struct StageView: View {
                 HalfView(pane: model.left, model: model)
                     .frame(width: max(fold.frame.minX, 0))
                     .if(progress > 0.01) { $0.clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous)) }
-                    .rotation3DEffect(.degrees(-tilt - inviteTilt), axis: (x: 0, y: 1, z: 0), anchor: .trailing, perspective: 0.5)
+                    .rotation3DEffect(.degrees(tilt + inviteTilt), axis: (x: 0, y: 1, z: 0), anchor: .trailing, perspective: 0.5)
                     .scaleEffect(scale * inviteScale, anchor: .trailing)
                     .offset(x: shift)
                 Color.clear.frame(width: max(fold.frame.width, 0))
                 HalfView(pane: model.right, model: model)
                     .frame(width: max(size.width - fold.frame.maxX, 0))
                     .if(progress > 0.01) { $0.clipShape(RoundedRectangle(cornerRadius: 28 * progress, style: .continuous)) }
-                    .rotation3DEffect(.degrees(tilt + inviteTilt), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
+                    .rotation3DEffect(.degrees(-(tilt + inviteTilt)), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
                     .scaleEffect(scale * inviteScale, anchor: .leading)
                     .offset(x: -shift)
             }

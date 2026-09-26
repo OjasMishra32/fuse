@@ -26,7 +26,24 @@ struct DemoScenario: Identifiable {
     let right: Input
     let instruction: String?
 
-    static var all: [DemoScenario] { core + more }
+    static var all: [DemoScenario] { sections.flatMap(\.scenarios) }
+
+    struct Section: Identifiable {
+        let title: String
+        let scenarios: [DemoScenario]
+        var id: String { title }
+    }
+
+    /// Grouped by the relationship between the two screens.
+    static var sections: [Section] {
+        [
+            Section(title: "Featured", scenarios: core + more),
+            Section(title: "Places and plans", scenarios: places),
+            Section(title: "Time and commitments", scenarios: time),
+            Section(title: "Review and compare", scenarios: review),
+            Section(title: "Make and create", scenarios: make),
+        ]
+    }
 
     static let core: [DemoScenario] = [
         DemoScenario(
