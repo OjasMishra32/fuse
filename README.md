@@ -28,6 +28,15 @@ Some pairs and what they produce:
 
 Every result comes with follow-ups ("Make a practice test on my weak spots"), which re-fuse the same two screens with a new instruction.
 
+
+## Using your phone, not an app
+
+Fuse is meant to sit underneath whatever you are already doing:
+
+- **Send to Fuse** — from Safari, Photos, Files, Messages or any app, tap Share → *Fuse* → pick a half. The item lands on that half of the phone. Fold to fuse it with whatever is on the other half.
+- **Live intent** — the moment both halves have something on them, the seam shows what the fold will do right now ("Fold: Plan the day", "Add to calendar", "Compare"). Folding runs the first one; tap another to pick it; hold the mic to say something else.
+- **Back Tap / Action Button / Siri** — "Fuse" and "Fuse with Voice" are App Shortcuts, so a double tap on the back of the phone can fuse without opening anything.
+
 ## The interaction
 
 1. Open the Duo. Left and right panes each show a surface dock; pick one and put something on it.

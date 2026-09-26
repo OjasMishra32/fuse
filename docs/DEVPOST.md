@@ -99,3 +99,10 @@ Swift, SwiftUI, iOS 27.1 iPhone Duo APIs, Bitrig, Xcode 27.1, OpenAI gpt-6-sol a
 Please opt this submission in for the RevenueCat prize. Fuse Pro (unlimited fuses) is implemented with the RevenueCat SDK and a RevenueCatUI paywall, gated at the single point where every trigger converges.
 
 Repository: https://github.com/OjasMishra32/fuse
+
+
+## Addendum: it lives under your phone, not inside an app
+
+- **Send to Fuse** share extension: Safari, Photos, Files and Messages hand content to either half through the share sheet (App Group inbox). The phone is the input; Fuse is the hinge.
+- **Live intent on the seam**: before you fold, a quick pre-read of both screens shows the three most useful fuses for this exact moment; folding runs the first.
+- **Design**: system appearance, system colors and materials, iOS 26 glass controls. The only theatrical moment is the fold: a 3D page tilt, an edge glow, two glass drops merging on the hinge, one pulse of light.
