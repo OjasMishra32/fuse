@@ -48,4 +48,8 @@ Local secrets, the employer SQLite database, and generated test receipts must no
 
 After one successful native application, open http://127.0.0.1:8777/apply in Chrome. Select **Watch FUSE fill the form** to animate contact details, the saved AI-tailored résumé, and cover letter into a real local employer form. Select **Submit demo application**. Success appears only after POST saves the application and a separate GET verifies its receipt. Reload/retry retains the same application identifier to avoid duplicates.
 
-This is an explicitly labeled browser replay of the previously generated fictional documents, not new AI generation or a verified fold-triggered form animation. Chrome was tested; the Codex in-app browser did not execute the fill interaction during testing. The native app and its fold handling are unchanged.
+This is an explicitly labeled browser replay of the previously generated fictional documents, not new AI generation or a verified fold-triggered form animation. Chrome was tested; the Codex in-app browser did not execute the fill interaction during testing. The native app now separately shows its own four-field application card while filling. Its session completes that stage before submitting; the browser replay is optional.
+
+## Integration validation
+
+Rebased onto team main `631ba58`, retaining its image-fusion and scenario updates. The job-specific close guard is routed before the generic fold handler, so unprepared closes and closed launches do not submit. The shared AI client now includes image-related errors; the job flow handles those without exposing raw service responses. Physical close-to-cover behavior still requires simulator verification; the explicit preview remains available.

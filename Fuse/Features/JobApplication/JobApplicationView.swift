@@ -283,7 +283,7 @@ struct JobApplicationView: View {
             }
             VStack(spacing: 14) {
                 progressStep(number: "1", title: "Tailor résumé + cover letter", detail: "Use the selected job and résumé", complete: !session.tailoredResume.isEmpty, active: isTailoring)
-                progressStep(number: "2", title: "Fill application & confirm delivery", detail: "Contact details, résumé, and cover letter", complete: session.receipt != nil, active: isSubmitting)
+                progressStep(number: "2", title: "Fill application & confirm delivery", detail: "Contact details, résumé, and cover letter", complete: session.receipt != nil, active: isSubmitting || session.phase == .filling)
             }
             if isTailoring {
                 Button("Cancel preparation", role: .cancel) { session.cancel() }

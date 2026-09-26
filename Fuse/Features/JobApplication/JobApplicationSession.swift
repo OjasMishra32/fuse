@@ -287,6 +287,7 @@ final class JobApplicationSession {
             switch clientError {
             case .missingKey: return "Add your OpenAI API key in Settings, then retry. No application was sent."
             case .http(let status, _): return "AI preparation failed (\(status)). Check your connection and API settings, then retry."
+            case .invalidImageCount, .invalidReference: return "The AI service could not read an input. Check your job and résumé, then retry."
             case .malformed: return "AI preparation returned an unreadable draft. Nothing was submitted; retry."
             }
         }

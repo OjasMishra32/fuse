@@ -161,6 +161,17 @@ final class AppModel {
         let closing = deg < previous - 0.5          // moving toward closed
         let opening = deg > previous + 0.5          // moving toward open
 
+        // The application flow consumes an unprepared close and requires a fresh open.
+        // Keep this gate separate from the generic fusion motion/recipe cache.
+        if jobDemoActive {
+            if jobFoldGate.observe(closed: h.status == .closed || deg < 22,
+                                   open: h.status == .fullyOpen || deg > 120,
+                                   eligible: jobCanCombine) {
+                startJobApplication(trigger: .fold)
+            }
+            return
+        }
+
         // The melt follows the closing motion only. Opening always relaxes the stage.
         if debugFold == nil {
             if closing && phase == .compose {
