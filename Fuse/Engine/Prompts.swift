@@ -50,9 +50,11 @@ enum Prompts {
       Use for: recipe + fridge photo (shopping list), event + packing, requirements + resume gaps.
     - {"type":"image_edit","prompt":"a precise description of ONE final image that combines what matters from both screens","caption":"…"}
       Use when the user asks for an image, picture, painting, poster, merge or composite, or when both screens are essentially pictures. Both screens' main photos are supplied to the image model as inputs; write the prompt as the finished scene, never as two copies side by side.
-      Use when the useful relationship is visual composition: furniture + room → that furniture placed in that room; clothing + person → a try-on; subject + visual reference → edited photo. Prefer this over a description or comparison for these pairs, even without a spoken instruction. Both screens must contain visible source imagery; a product photo inside a web page or screenshot counts. Two screenshots of messages/documents still call for a text artifact unless the user requests an image.
+      Use when the useful relationship is visual composition: two people, one on each screen (for example two Safari windows each showing a person) → ONE photo of both of them together; a person + a place → that person in that place; furniture + room → that furniture placed in that room; clothing + person → a try-on; subject + visual reference → edited photo. Prefer this over a description or comparison for these pairs, even without a spoken instruction. Both screens must contain visible source imagery; a product photo inside a web page or screenshot counts. Two screenshots of messages/documents still call for a text artifact unless the user requests an image.
       Inspect BOTH images and infer their roles regardless of which side they occupy. Refer to LEFT and RIGHT explicitly in the prompt: identify the scene to preserve, the object/style to transfer, and its placement. For a room, preserve its architecture, camera viewpoint and existing decor; retain the furniture's design, material and color; match perspective, plausible scale, lighting, occlusion and contact shadows. Do not make a collage or side-by-side comparison unless asked. Remove source app chrome, price labels and product backgrounds from the composition. Treat physical fit as a visualization, not a measured guarantee. Explicit requests to compare, extract text or explain still win.
       Return only the edit prompt and caption, never image_base64. Suggest follow-ups that refine the placement or look using the same two source images.
+    - {"type":"open_late","origin":"where the user is, e.g. the pinned hotel","origin_latitude":41.88,"origin_longitude":-87.63,"now":"11:10 PM","spots":[{"name":"…","category":"Ramen","address":"…","closes":"12:30 AM","closes_at":"2026-09-27T00:30:00","travel":"8 min walk","leave_by":"12:05 AM","minutes_to_spare":72,"note":"why it's worth it, or what to order","latitude":41.88,"longitude":-87.63}],"missed":[{"name":"…","reason":"closes 11:15 PM, 18 min away"}],"tip":"…"}
+      Use for: where the user is (a map pin, a hotel, an address) + restaurants, bars, cafés or stores with opening hours, especially late at night or when places close soon ("where can I still eat?"). Include EVERY listed place the user can reach with at least 20 minutes left before it closes, sorted by closing time, soonest first; put the rest in missed with the concrete reason. Time: use today's date and time from the preamble unless the user states one; "now" is that time. Travel from the origin: walking about 12 minutes per km (say "walk" under about 1.5 km), driving about 3 minutes per km at night plus 5 minutes to get a ride; leave_by = closes minus 20 minutes minus travel; minutes_to_spare = minutes between arriving and closing; closes_at is local ISO-8601 on the correct calendar day (after midnight is tomorrow). Hours come only from the screens: if a place's hours are not shown, put it in missed as "hours not listed, call first". Coordinates only when a screen gives them or the place is well known.
     - {"type":"markdown","markdown":"…"}
       Use when nothing structured fits. Still specific, still grounded, use headings and bullets.
 
@@ -71,7 +73,9 @@ enum Prompts {
             lines.append("Facts: \(meta)")
         }
         if snapshot.image != nil {
-            lines.append("(An image of this screen is attached.)")
+            lines.append(snapshot.metadata["content"] == "photo"
+                ? "(This screen is mainly showing a photo; that photo is attached.)"
+                : "(An image of this screen is attached.)")
         }
         let text = snapshot.text.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty {
@@ -110,12 +114,15 @@ enum Prompts {
         var sections = ["Create one finished image by combining the attached references."]
         var index = 0
         for (side, snapshot) in [("LEFT", left), ("RIGHT", right)] {
-            guard snapshot.image != nil else { continue }
+            // Same choice as FuseEngine's sources: the page's photo, never a page screenshot.
+            guard (snapshot.heroImage ?? (snapshot.kind == .web ? nil : snapshot.image)) != nil else { continue }
             index += 1
             sections.append("Reference image \(index) is the \(side) screen.\n\(describe(snapshot, side: side))")
         }
         sections.append("""
         Infer which reference is the base scene and which supplies the object or style, regardless of reference order. Use both when two are supplied. Follow the requested edit while preserving recognizable details from the sources.
+        For two people: make ONE photo of both of them together, as if a friend photographed them in one place. Use the better of the two settings (a real place beats a plain backdrop, stage or crowd). Show both faces clearly at similar size, standing close with natural spacing, lit by the same light. Keep each person's own face, hair, skin tone, build, clothing and expression; never blend or swap features between people, and show each person exactly once. Leave behind podiums, microphones and crowds from their old surroundings. For a person and a place: put that person in that place, lit by its light, with a real contact shadow.
+        Photos must look like one real, unedited photograph: no illustration, 3D render, HDR, glow, skin smoothing or oversaturated color, and nothing added that is in neither reference.
         For furniture and a room: use the room as the canvas, preserve its camera viewpoint, architecture and unrelated decor, and place the actual reference furniture naturally into the room. Preserve its shape, materials and colors. Match perspective, plausible scale, lighting, occlusion and contact shadows. Keep the room's aspect ratio when practical. Do not invent a different room or substitute generic furniture. This is a visual preview, not proof of physical fit.
         If a reference is an app screenshot or product listing, use its relevant photo and omit app chrome, labels, prices and the product's original background. Make a coherent single scene, not a collage, split screen or before/after layout, unless explicitly requested.
         """)

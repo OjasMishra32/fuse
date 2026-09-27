@@ -101,7 +101,7 @@ final class FuseEngineTests: XCTestCase {
     @MainActor
     func testPromptsMentionEveryArtifactType() {
         let system = Prompts.system
-        for type in ["itinerary", "event", "email", "quiz", "grade", "slides", "code", "diff", "table", "checklist", "image_edit", "markdown"] {
+        for type in ["itinerary", "event", "email", "quiz", "grade", "slides", "code", "diff", "table", "checklist", "image_edit", "open_late", "markdown"] {
             XCTAssertTrue(system.contains("\"type\":\"\(type)\""), "catalogue is missing \(type)")
         }
     }

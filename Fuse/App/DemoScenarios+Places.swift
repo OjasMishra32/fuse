@@ -8,6 +8,49 @@ import UIKit
 
 extension DemoScenario {
     static let places: [DemoScenario] = [
+        // Late at night in a city you don't know: the fold lists everything you can still reach
+        // and sit down at before it closes. Hours below are sample data for the demo.
+        DemoScenario(
+            id: "places-late-night",
+            title: "Still open tonight",
+            subtitle: "Hotel pin + late-night list → what you can still make",
+            symbol: "moon.stars",
+            left: .init(kind: .notes, preset: .text("""
+                Safari: "late night food near me" (Chicago Loop), Friday
+
+                Pizano's Pizza & Pasta · 61 E Madison St · deep dish, thin crust
+                Open · Closes 1 AM
+
+                The Gage · 24 S Michigan Ave · gastropub
+                Open · Kitchen closes 11:30 PM
+
+                Giordano's · 130 E Randolph St · deep dish
+                Closed · Opens 11 AM
+
+                Ramen-San · 59 W Hubbard St · ramen, late night menu
+                Open · Closes 12 AM
+
+                Portillo's · 100 W Ontario St · Italian beef, hot dogs
+                Open · Closes 12 AM
+
+                Au Cheval · 800 W Randolph St · burgers, long wait
+                Open · Closes 1 AM
+
+                Jim's Original · 1250 S Union Ave · Maxwell Street Polish
+                Open 24 hours
+
+                The Berghoff · 17 W Adams St · German
+                Closed · Closes 9 PM
+
+                Lou Mitchell's · 565 W Jackson Blvd · diner
+                Closed · Breakfast and lunch only
+
+                Cindy's Rooftop · 12 S Michigan Ave · bar, small plates
+                Hours not listed
+                """)),
+            right: .init(kind: .maps, preset: .place(name: "Palmer House, 17 E Monroe St, Chicago", latitude: 41.8807, longitude: -87.6269)),
+            instruction: "It's 11:10 PM on Friday and I just got to my hotel. Where can I still get food before places close?"
+        ),
         DemoScenario(
             id: "places-restaurant-shortlist",
             title: "Pick the restaurant",

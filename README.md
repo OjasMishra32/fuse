@@ -31,9 +31,11 @@ Some pairs and what they produce:
 | Job posting | Resume | Cover email that quotes both |
 | Vendor contract clauses | Procurement policy | Redline with reasons |
 | Your calendar | A pin | Day ordered geographically, with leave-by times |
+| A map pin where you're staying (a city you don't know) | A late-night food list with hours | Everything you can still reach and sit down at before it closes, soonest first, with leave-by times and walking directions |
 | Wikipedia article | Blog draft | Contradictions table |
 | Messy notes | Background article | Six-slide pitch |
 | Room photo | Furniture photo | Furniture placed in your room (gpt-image-2) |
+| Photo of a person (Safari) | Photo of another person (Safari) | One realistic photo of both of them together |
 | Photo | Visual reference | Edited photo (gpt-image-2) |
 
 Every result comes with follow-ups ("Make a practice test on my weak spots"), which re-fuse the same two screens with a new instruction.

@@ -78,6 +78,7 @@ enum FuseArtifact: Codable, Hashable {
     case table(TableArtifact)
     case grade(GradeReport)
     case image(ImageArtifact)
+    case openLate(OpenLatePlan)
 
     /// Wire name used in JSON (`"type"`).
     var typeName: String {
@@ -94,6 +95,7 @@ enum FuseArtifact: Codable, Hashable {
         case .table: "table"
         case .grade: "grade"
         case .image: "image"
+        case .openLate: "open_late"
         }
     }
 
@@ -111,6 +113,7 @@ enum FuseArtifact: Codable, Hashable {
         case .table: "tablecells"
         case .grade: "graduationcap"
         case .image: "photo.on.rectangle.angled"
+        case .openLate: "moon.stars"
         }
     }
 
@@ -143,6 +146,8 @@ enum FuseArtifact: Codable, Hashable {
             self = .grade(try single.decode(GradeReport.self))
         case "image", "image_edit", "photo":
             self = .image(try single.decode(ImageArtifact.self))
+        case "open_late", "open_now", "still_open", "late_night":
+            self = .openLate(try single.decode(OpenLatePlan.self))
         default:
             let md = try single.decode(MarkdownBox.self)
             self = .markdown(md.markdown)
@@ -166,6 +171,7 @@ enum FuseArtifact: Codable, Hashable {
         case .table(let v): try single.encode(v)
         case .grade(let v): try single.encode(v)
         case .image(let v): try single.encode(v)
+        case .openLate(let v): try single.encode(v)
         }
     }
 
@@ -537,6 +543,157 @@ struct GradeReport: Codable, Hashable {
         items = try c.decodeIfPresent([Item].self, forKey: .items) ?? []
         weaknesses = try c.decodeIfPresent([String].self, forKey: .weaknesses) ?? []
         nextSteps = try c.decodeIfPresent([String].self, forKey: .nextSteps) ?? []
+    }
+}
+
+// MARK: Still open (places you can reach before they close)
+
+struct OpenLatePlan: Codable, Hashable {
+    struct Spot: Codable, Hashable, Identifiable {
+        var id: UUID = UUID()
+        var name: String
+        var category: String?
+        var address: String?
+        /// Closing time as people say it: "12:30 AM".
+        var closes: String
+        /// Closing time as local ISO-8601, for a live countdown when it parses.
+        var closesAt: String?
+        /// "8 min walk", "6 min drive".
+        var travel: String?
+        var leaveBy: String?
+        /// Minutes at the table (or in the shop) between arriving and closing.
+        var minutesToSpare: Int?
+        var note: String?
+        var latitude: Double?
+        var longitude: Double?
+
+        enum CodingKeys: String, CodingKey {
+            case name, category, address, closes, travel, note, latitude, longitude, lat, lon, lng
+            case closesAt = "closes_at", leaveBy = "leave_by", minutesToSpare = "minutes_to_spare"
+        }
+        init(name: String, category: String? = nil, address: String? = nil, closes: String, closesAt: String? = nil,
+             travel: String? = nil, leaveBy: String? = nil, minutesToSpare: Int? = nil, note: String? = nil,
+             latitude: Double? = nil, longitude: Double? = nil) {
+            self.name = name; self.category = category; self.address = address; self.closes = closes; self.closesAt = closesAt
+            self.travel = travel; self.leaveBy = leaveBy; self.minutesToSpare = minutesToSpare; self.note = note
+            self.latitude = latitude; self.longitude = longitude
+        }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Place"
+            category = try c.decodeIfPresent(String.self, forKey: .category)
+            address = try c.decodeIfPresent(String.self, forKey: .address)
+            closes = try c.decodeIfPresent(String.self, forKey: .closes) ?? ""
+            closesAt = try c.decodeIfPresent(String.self, forKey: .closesAt)
+            travel = try c.decodeIfPresent(String.self, forKey: .travel)
+            leaveBy = try c.decodeIfPresent(String.self, forKey: .leaveBy)
+            // Models sometimes write 45.0; a string or garbage just means "unknown".
+            if let minutes = try? c.decodeIfPresent(Double.self, forKey: .minutesToSpare), minutes.isFinite {
+                minutesToSpare = Int(minutes)
+            } else {
+                minutesToSpare = nil
+            }
+            note = try c.decodeIfPresent(String.self, forKey: .note)
+            latitude = try c.decodeIfPresent(Double.self, forKey: .latitude) ?? c.decodeIfPresent(Double.self, forKey: .lat)
+            longitude = try c.decodeIfPresent(Double.self, forKey: .longitude)
+                ?? c.decodeIfPresent(Double.self, forKey: .lon)
+                ?? c.decodeIfPresent(Double.self, forKey: .lng)
+        }
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(name, forKey: .name)
+            try c.encodeIfPresent(category, forKey: .category)
+            try c.encodeIfPresent(address, forKey: .address)
+            try c.encode(closes, forKey: .closes)
+            try c.encodeIfPresent(closesAt, forKey: .closesAt)
+            try c.encodeIfPresent(travel, forKey: .travel)
+            try c.encodeIfPresent(leaveBy, forKey: .leaveBy)
+            try c.encodeIfPresent(minutesToSpare, forKey: .minutesToSpare)
+            try c.encodeIfPresent(note, forKey: .note)
+            try c.encodeIfPresent(latitude, forKey: .latitude)
+            try c.encodeIfPresent(longitude, forKey: .longitude)
+        }
+
+        var closesDate: Date? { closesAt.flatMap(FuseDates.parse) }
+
+        /// "Closes 12:30 AM · 8 min walk · leave by 12:05 AM".
+        var summaryLine: String {
+            var parts: [String] = []
+            if !closes.isEmpty { parts.append("Closes \(closes)") }
+            if let travel, !travel.isEmpty { parts.append(travel) }
+            if let leaveBy, !leaveBy.isEmpty { parts.append("leave by \(leaveBy)") }
+            return parts.joined(separator: " · ")
+        }
+    }
+
+    struct Missed: Codable, Hashable, Identifiable {
+        var id: UUID = UUID()
+        var name: String
+        var reason: String
+        enum CodingKeys: String, CodingKey { case name, reason }
+        init(name: String, reason: String) { self.name = name; self.reason = reason }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Place"
+            reason = try c.decodeIfPresent(String.self, forKey: .reason) ?? ""
+        }
+    }
+
+    /// Where the user is starting from: "Palmer House, 17 E Monroe St".
+    var origin: String
+    var originLatitude: Double?
+    var originLongitude: Double?
+    /// The time the plan was made for: "11:10 PM".
+    var now: String?
+    var spots: [Spot]
+    var missed: [Missed]
+    var tip: String?
+
+    enum CodingKeys: String, CodingKey {
+        case origin, now, spots, places, missed, tip
+        case originLatitude = "origin_latitude", originLongitude = "origin_longitude"
+    }
+    init(origin: String, originLatitude: Double? = nil, originLongitude: Double? = nil, now: String? = nil,
+         spots: [Spot], missed: [Missed] = [], tip: String? = nil) {
+        self.origin = origin; self.originLatitude = originLatitude; self.originLongitude = originLongitude
+        self.now = now; self.spots = spots; self.missed = missed; self.tip = tip
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        origin = try c.decodeIfPresent(String.self, forKey: .origin) ?? ""
+        originLatitude = try? c.decodeIfPresent(Double.self, forKey: .originLatitude)
+        originLongitude = try? c.decodeIfPresent(Double.self, forKey: .originLongitude)
+        now = try c.decodeIfPresent(String.self, forKey: .now)
+        spots = try c.decodeIfPresent([Spot].self, forKey: .spots) ?? c.decodeIfPresent([Spot].self, forKey: .places) ?? []
+        missed = try c.decodeIfPresent([Missed].self, forKey: .missed) ?? []
+        tip = try c.decodeIfPresent(String.self, forKey: .tip)
+    }
+    /// Plain text for copying, sharing and the Safari popup.
+    var lines: [String] {
+        var out: [String] = []
+        let header = [origin.isEmpty ? nil : "From \(origin)", now.map { "at \($0)" }].compactMap { $0 }.joined(separator: " ")
+        if !header.isEmpty { out.append(header) }
+        for (i, spot) in spots.enumerated() {
+            out.append("\(i + 1). \(spot.name)" + (spot.summaryLine.isEmpty ? "" : ": \(spot.summaryLine)"))
+        }
+        if !missed.isEmpty {
+            out.append("")
+            out.append("Too late tonight")
+            out.append(contentsOf: missed.map { "• \($0.name)" + ($0.reason.isEmpty ? "" : ": \($0.reason)") })
+        }
+        if let tip, !tip.isEmpty { out.append(""); out.append(tip) }
+        return out
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(origin, forKey: .origin)
+        try c.encodeIfPresent(originLatitude, forKey: .originLatitude)
+        try c.encodeIfPresent(originLongitude, forKey: .originLongitude)
+        try c.encodeIfPresent(now, forKey: .now)
+        try c.encode(spots, forKey: .spots)
+        try c.encode(missed, forKey: .missed)
+        try c.encodeIfPresent(tip, forKey: .tip)
     }
 }
 

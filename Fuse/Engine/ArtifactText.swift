@@ -28,6 +28,8 @@ extension FuseArtifact {
             return ([t.columns.joined(separator: " | ")] + t.rows.map { $0.joined(separator: " | ") }).joined(separator: "\n") + (t.note.map { "\n\n" + $0 } ?? "")
         case .grade(let g):
             return "Score: \(g.score)\n" + g.items.map { ($0.correct ? "✓ " : "✗ ") + $0.question + ($0.feedback.map { ": " + $0 } ?? "") }.joined(separator: "\n") + (g.weaknesses.isEmpty ? "" : "\n\nWork on: " + g.weaknesses.joined(separator: ", "))
+        case .openLate(let plan):
+            return plan.lines.joined(separator: "\n")
         case .image(let i):
             return i.caption ?? i.prompt
         }

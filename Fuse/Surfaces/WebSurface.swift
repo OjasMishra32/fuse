@@ -160,6 +160,21 @@ final class WebSurfaceModel: SurfaceModel {
         if let host = url.host { meta["host"] = host }
         if let heroURL { meta["main_image"] = heroURL.absoluteString }
 
+        // A page that is mainly showing a photo is that photo: load it at full resolution. If it
+        // can't be loaded, the page capture stands in and the photo is cropped out of it later.
+        let detected = await evaluateString(PageImage.detectionScript)
+        if let found = PageImage.parse(detected) {
+            meta["content"] = "photo"
+            if !found.src.lowercased().hasPrefix("data:") { meta["image_url"] = found.src }
+            if let alt = found.alt, !alt.isEmpty { meta["image_alt"] = alt }
+            let photo = try? await PageImage.load(source: found.src, referer: url.absoluteString)
+            if let photo {
+                hero = photo.fuseDownscaled(maxEdge: 2048)
+            } else {
+                meta["photo_source"] = "screen"
+            }
+        }
+
         return SurfaceSnapshot(kind: .web, title: title, text: text, image: image?.fuseDownscaled(maxEdge: 1024), metadata: meta, heroImage: hero)
     }
 

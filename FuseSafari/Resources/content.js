@@ -1,5 +1,7 @@
 // Fuse in Safari.
-//  1. Every page you read is remembered (URL, title, visible text, selection).
+//  1. Every page you read is remembered (URL, title, visible text, selection), plus the photo
+//     when the page is mainly showing one (an image opened on its own, an image viewer, a photo
+//     page). Two remembered photos, say one person on each half, fold into one fused photo.
 //  2. Folding the phone is the command: when the display collapses, the two pages you had
 //     open are fused in the background and the result is drawn right here, as a sheet inside
 //     the page. Nothing to tap.
@@ -7,20 +9,82 @@
   if (window.top !== window) return;   // main frame only
   const R = window.FuseRender;
 
+  // Same rules as PageImage.detectionScript in the app. Keep them in sync.
+  const MIN_COVERAGE = 0.3;
+
+  function primaryImage() {
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    if (!vw || !vh) return null;
+    if ((document.contentType || "").indexOf("image/") === 0) {
+      const only = document.images[0];
+      return { src: location.href, alt: "", width: only ? only.naturalWidth : 0, height: only ? only.naturalHeight : 0, coverage: 1 };
+    }
+    let best = null, bestArea = 0;
+    for (const img of document.images) {
+      if (!img.complete || img.naturalWidth < 256 || img.naturalHeight < 256) continue;
+      const r = img.getBoundingClientRect();
+      const w = Math.min(r.right, vw) - Math.max(r.left, 0);
+      const h = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+      if (w <= 0 || h <= 0 || w * h <= bestArea) continue;
+      const cs = window.getComputedStyle(img);
+      if (cs.visibility === "hidden" || cs.display === "none" || parseFloat(cs.opacity) < 0.2) continue;
+      best = img; bestArea = w * h;
+    }
+    if (!best) return null;
+    const coverage = bestArea / (vw * vh);
+    if (coverage < MIN_COVERAGE) return null;
+    let src = best.currentSrc || best.src || "";
+    if (src.indexOf("blob:") === 0) {
+      try {
+        const c = document.createElement("canvas");
+        c.width = best.naturalWidth; c.height = best.naturalHeight;
+        c.getContext("2d").drawImage(best, 0, 0);
+        src = c.toDataURL("image/jpeg", 0.92);
+      } catch (e) { return null; }
+    }
+    if (!src || (src.indexOf("data:") === 0 && src.length > 6000000)) return null;
+    return { src: src, alt: (best.alt || best.title || "").slice(0, 300), width: best.naturalWidth, height: best.naturalHeight, coverage: Math.round(coverage * 100) / 100 };
+  }
+
   function grab() {
     const text = (document.body && document.body.innerText || "").replace(/\s+\n/g, "\n").replace(/[ \t]+/g, " ").trim().slice(0, 6000);
     const selection = (window.getSelection && window.getSelection().toString() || "").trim().slice(0, 2000);
-    return { kind: "visit", url: location.href, title: document.title || location.hostname, text: text, selection: selection };
+    let image = null;
+    try { image = primaryImage(); } catch (e) {}
+    return { kind: "visit", url: location.href, title: document.title || location.hostname, text: text, selection: selection, image: image };
   }
 
   let timer = null;
+  let lastImage = "";
   function send() {
     clearTimeout(timer);
-    timer = setTimeout(() => { try { browser.runtime.sendMessage(grab()); } catch (e) {} }, 500);
+    timer = setTimeout(() => {
+      try {
+        const page = grab();
+        lastImage = page.image ? page.image.src : "";
+        browser.runtime.sendMessage(page);
+      } catch (e) {}
+    }, 500);
+  }
+
+  // Tapping into an image viewer, swiping a gallery or scrolling to a photo changes what is on
+  // screen without a page load: resend only when the photo in view actually changed.
+  let watch = null;
+  function watchImage() {
+    clearTimeout(watch);
+    watch = setTimeout(() => {
+      let src = "";
+      try { const img = primaryImage(); src = img ? img.src : ""; } catch (e) {}
+      if (src !== lastImage) send();
+    }, 900);
   }
   if (document.readyState === "complete") send(); else window.addEventListener("load", send);
   document.addEventListener("selectionchange", send);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) send(); });
+  window.addEventListener("scroll", watchImage, { passive: true });
+  document.addEventListener("click", watchImage, true);
+  document.addEventListener("load", watchImage, true);   // images finishing loading (capture phase)
 
   // --- Fold detection -------------------------------------------------------------------
   // The fold is any of: the viewport collapsing by more than 30 % from the largest size this
@@ -68,7 +132,7 @@
       try { await browser.runtime.sendMessage(grab()); } catch (e) {}
       try {
         const s = await browser.runtime.sendMessage({ kind: "status" });
-        if (s && s.pages && s.pages.length) showSheet({ state: "working", pages: s.pages });
+        if (s && s.pages && s.pages.length) showSheet({ state: "working", pages: s.pages, photos: !!s.photos });
       } catch (e) {}
       const r = await browser.runtime.sendMessage({ kind: "fold", url: location.href, title: document.title });
       if (r && r.ok) showSheet({ state: "result", result: r });
@@ -118,6 +182,7 @@
 #fuse-sheet .fs-page{display:flex;align-items:center;gap:10px;min-height:44px;padding-right:14px}
 #fuse-sheet .fs-page + .fs-page{border-top:0.5px solid var(--fr-sep)}
 #fuse-sheet .fs-dot{width:8px;height:8px;border-radius:4px;background:#0a7aff;flex:0 0 auto}
+#fuse-sheet .fs-thumb{width:32px;height:32px;border-radius:7px;object-fit:cover;flex:0 0 auto;background:var(--fr-fill)}
 #fuse-sheet .fs-page-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:15px}
 #fuse-sheet .fs-hint{font-size:13px;color:var(--fr-secondary);margin:0 16px 4px}
 #fuse-sheet .fs-err{font-size:15px;color:#ff3b30;margin:4px 16px 8px}
@@ -155,14 +220,17 @@
         const list = document.createElement("div"); list.className = "fs-pages";
         for (const p of pages) {
           const row = document.createElement("div"); row.className = "fs-page";
-          const dot = document.createElement("span"); dot.className = "fs-dot";
+          let mark;
+          if (p.thumb) { mark = document.createElement("img"); mark.className = "fs-thumb"; mark.alt = ""; mark.src = p.thumb; }
+          else { mark = document.createElement("span"); mark.className = "fs-dot"; }
           const t = document.createElement("span"); t.className = "fs-page-t"; t.textContent = p.title || p.url || "";
-          row.appendChild(dot); row.appendChild(t); list.appendChild(row);
+          row.appendChild(mark); row.appendChild(t); list.appendChild(row);
         }
         body.appendChild(list);
       }
       const hint = document.createElement("div"); hint.className = "fs-hint";
-      hint.textContent = s.instruction ? s.instruction : "Folding these two pages into one";
+      hint.textContent = s.instruction ? s.instruction
+        : (s.photos ? "Fusing these two photos into one. This takes about a minute." : "Folding these two pages into one");
       body.appendChild(hint);
     } else if (s.state === "result" && R) {
       name.textContent = "Fuse";
